@@ -1,11 +1,13 @@
+import 'primeicons/primeicons.css';
+
 import Aura from '@primeuix/themes/aura';
 import { createPinia } from 'pinia';
 import piniaPluginPersistedstate from 'pinia-plugin-persistedstate';
-import 'primeicons/primeicons.css';
 import PrimeVue from 'primevue/config';
 import ToastService from 'primevue/toastservice';
 import Tooltip from 'primevue/tooltip';
 import { createApp } from 'vue';
+
 import App from './App.vue';
 import { markPerformance } from './utils/observability';
 
@@ -18,51 +20,53 @@ function isFullscreenLikeActive() {
 
   return Boolean(
     doc.fullscreenElement ||
-      doc.webkitFullscreenElement ||
-      doc.mozFullScreenElement ||
-      doc.msFullscreenElement ||
-      document.querySelector('.art-fullscreen-web'),
+    doc.webkitFullscreenElement ||
+    doc.mozFullScreenElement ||
+    doc.msFullscreenElement ||
+    document.querySelector('.art-fullscreen-web'),
   );
 }
 
-function reloadWhenFullscreenIsIdle() {
+function runWhenFullscreenIsIdle(task: () => void) {
   if (!isFullscreenLikeActive()) {
-    window.location.reload();
+    task();
     return;
   }
 
-  const reload = () => {
+  const run = () => {
     cleanup();
-    window.location.reload();
+    task();
   };
-  const reloadAfterFullscreenExit = () => {
+  const runAfterFullscreenExit = () => {
     if (!isFullscreenLikeActive()) {
-      reload();
+      run();
     }
   };
   const cleanup = () => {
-    document.removeEventListener('fullscreenchange', reloadAfterFullscreenExit);
-    document.removeEventListener('webkitfullscreenchange', reloadAfterFullscreenExit);
-    document.removeEventListener('mozfullscreenchange', reloadAfterFullscreenExit);
-    document.removeEventListener('MSFullscreenChange', reloadAfterFullscreenExit);
-    window.removeEventListener('pagehide', reload);
+    document.removeEventListener('fullscreenchange', runAfterFullscreenExit);
+    document.removeEventListener('webkitfullscreenchange', runAfterFullscreenExit);
+    document.removeEventListener('mozfullscreenchange', runAfterFullscreenExit);
+    document.removeEventListener('MSFullscreenChange', runAfterFullscreenExit);
+    window.removeEventListener('pagehide', run);
   };
 
-  document.addEventListener('fullscreenchange', reloadAfterFullscreenExit);
-  document.addEventListener('webkitfullscreenchange', reloadAfterFullscreenExit);
-  document.addEventListener('mozfullscreenchange', reloadAfterFullscreenExit);
-  document.addEventListener('MSFullscreenChange', reloadAfterFullscreenExit);
-  window.addEventListener('pagehide', reload, { once: true });
+  document.addEventListener('fullscreenchange', runAfterFullscreenExit);
+  document.addEventListener('webkitfullscreenchange', runAfterFullscreenExit);
+  document.addEventListener('mozfullscreenchange', runAfterFullscreenExit);
+  document.addEventListener('MSFullscreenChange', runAfterFullscreenExit);
+  window.addEventListener('pagehide', run, { once: true });
 }
 
 import './styles/mobile-input.css';
 import './styles/primevue-theme.css';
+
 const app = createApp(App);
 const pinia = createPinia();
 pinia.use(piniaPluginPersistedstate);
 app.use(pinia);
 
 import './styles/danmu-tooltip.css';
+
 app.use(PrimeVue, {
   theme: {
     preset: Aura,
@@ -81,12 +85,41 @@ markPerformance('rm-app-mounted');
 
 function registerServiceWorkerWhenIdle() {
   void import('virtual:pwa-register').then(({ registerSW }) => {
+    let lastUpdateCheckAt = 0;
+    const updateCheckIntervalMs = 60 * 1000;
+
+    const checkForServiceWorkerUpdate = (registration?: ServiceWorkerRegistration) => {
+      if (!registration || document.visibilityState === 'hidden') {
+        return;
+      }
+
+      const now = Date.now();
+      if (now - lastUpdateCheckAt < updateCheckIntervalMs) {
+        return;
+      }
+
+      lastUpdateCheckAt = now;
+      void registration.update().catch((error) => {
+        console.warn('[rm-live][pwa] service worker update check failed', error);
+      });
+    };
+
     const updateServiceWorker = registerSW({
       immediate: true,
       onNeedRefresh() {
-        void updateServiceWorker(true).then(() => {
-          reloadWhenFullscreenIsIdle();
+        runWhenFullscreenIsIdle(() => {
+          void updateServiceWorker(true);
         });
+      },
+      onRegisteredSW(_swUrl, registration) {
+        checkForServiceWorkerUpdate(registration);
+
+        window.setInterval(checkForServiceWorkerUpdate, updateCheckIntervalMs, registration);
+        window.addEventListener('focus', () => checkForServiceWorkerUpdate(registration));
+        document.addEventListener('visibilitychange', () => checkForServiceWorkerUpdate(registration));
+      },
+      onRegisterError(error) {
+        console.warn('[rm-live][pwa] service worker registration failed', error);
       },
     });
   });

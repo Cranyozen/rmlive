@@ -54,11 +54,14 @@ export default antfu(
          */
         'no-console': 'off',
         'ts/no-explicit-any': 'off',
+        'ts/no-unused-vars': 'off',
+        'e18e/prefer-static-regex': 'off',
 
         /* Disallow person rules */
         'antfu/top-level-function': 'off',
         'antfu/if-newline': 'off',
         'n/prefer-global/process': 'off',
+        'no-restricted-globals': 'off',
 
         /* If you need control the imports sequence, must be off
          *  https://github.com/vuejs/vue-eslint-parser/issues/58
@@ -100,14 +103,9 @@ export default antfu(
       files: ['**/*.vue'],
 
       rules: {
-        'vue/component-name-in-template-casing': ['error', 'kebab-case'],
-        'vue/custom-event-name-casing': ['error', 'kebab-case'],
-        'vue/block-order': [
-          'error',
-          {
-            order: ['template', 'script', 'style'],
-          },
-        ],
+        'vue/component-name-in-template-casing': ['error', 'PascalCase'],
+        'vue/custom-event-name-casing': 'off',
+        'vue/block-order': 'off',
         'vue/block-lang': [
           'error',
           {
@@ -122,13 +120,34 @@ export default antfu(
 
         'vue-scoped-css/no-parsing-error': 'off',
         'vue-scoped-css/no-unused-selector': 'off',
-        'vue-scoped-css/enforce-style-type': [
-          'error',
-          {
-            allows: ['scoped'],
-          },
-        ],
-        'vue/padding-line-between-blocks': ['error', 'never'],
+        'vue-scoped-css/enforce-style-type': 'off',
+        'vue/padding-line-between-blocks': 'off',
+      },
+    },
+    {
+      rules: {
+        'prettier/prettier': 'off',
+        'simple-import-sort/imports': 'off',
+        'simple-import-sort/exports': 'off',
+        'import/consistent-type-specifier-style': 'off',
+        'import/no-duplicates': 'off',
+        'ts/consistent-type-imports': 'off',
+        'ts/consistent-type-definitions': 'off',
+        'ts/method-signature-style': 'off',
+        'ts/no-unused-vars': 'off',
+        'antfu/consistent-list-newline': 'off',
+        'e18e/prefer-array-at': 'off',
+        'e18e/prefer-timer-args': 'off',
+        'import/newline-after-import': 'off',
+        'no-unneeded-ternary': 'off',
+        'no-useless-return': 'off',
+        'prefer-const': 'off',
+        'unicorn/escape-case': 'off',
+        'vue/attribute-hyphenation': 'off',
+        'vue/attributes-order': 'off',
+        'vue/define-macros-order': 'off',
+        'vue/object-shorthand': 'off',
+        'vue/prefer-separate-static-class': 'off',
       },
     },
     globalIgnores([

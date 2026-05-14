@@ -10,19 +10,13 @@
  *   registered; they are unreliable for short intervals and are not used as the main notification cadence.
  */
 import { cleanupOutdatedCaches, precacheAndRoute } from 'workbox-precaching';
+
+import { getAllMatchSnapshots, getPrefsFromDb, replaceAllMatchSnapshots } from './lib/scheduleNotifyDb';
 import type { Schedule } from './types/api';
-import {
-  getAllMatchSnapshots,
-  getPrefsFromDb,
-  replaceAllMatchSnapshots,
-} from './lib/scheduleNotifyDb';
-import { getScheduleJsonUrl } from './utils/scheduleJsonUrl';
-import {
-  diffScheduleSnapshots,
-  matchViewToNotifySnapshot,
-  type MatchNotifySnapshot,
-} from './utils/scheduleNotifyDiff';
 import { getScheduleRows } from './utils/matchView';
+import { getScheduleJsonUrl } from './utils/scheduleJsonUrl';
+import type { MatchNotifySnapshot } from './utils/scheduleNotifyDiff';
+import { diffScheduleSnapshots, matchViewToNotifySnapshot } from './utils/scheduleNotifyDiff';
 
 declare const self: ServiceWorkerGlobalScope & { __WB_MANIFEST: string[] };
 
@@ -74,7 +68,7 @@ async function runSchedulePoll(): Promise<void> {
   }
 
   // One poll can yield many diffs (e.g. catch-up after idle); only surface the latest to avoid notification spam.
-  const { type, snap } = events[events.length - 1]!;
+  const { type, snap } = events.at(-1)!;
   const title =
     type === 'match_start'
       ? `比赛开始 · ${snap.redTeamName} vs ${snap.blueTeamName}`
@@ -108,10 +102,6 @@ self.addEventListener('periodicsync', (event: Event) => {
   if (ev.tag === 'schedule') {
     ev.waitUntil(runSchedulePoll());
   }
-});
-
-self.addEventListener('install', (event) => {
-  event.waitUntil(self.skipWaiting());
 });
 
 self.addEventListener('activate', (event) => {

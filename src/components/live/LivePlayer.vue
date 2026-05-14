@@ -1,4 +1,14 @@
 <script setup lang="ts">
+import type Artplayer from 'artplayer';
+import type { Option } from 'artplayer';
+import type { Danmu } from 'artplayer-plugin-danmuku';
+import { storeToRefs } from 'pinia';
+import Button from 'primevue/button';
+import Message from 'primevue/message';
+import ProgressSpinner from 'primevue/progressspinner';
+import { useToast } from 'primevue/usetoast';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+
 import { DanmuService } from '@/danmu/DanmuService';
 import { useDanmuFilterStore } from '@/stores/danmuFilter';
 import { useMatchEngagementStore } from '@/stores/matchEngagement';
@@ -6,18 +16,10 @@ import { useRmDataStore } from '@/stores/rmData';
 import { useUiStore } from '@/stores/ui';
 import { isIFrame, useUserInfoStore } from '@/stores/userInfo';
 import { formatStructuredName, resolveDisplaySchool } from '@/utils/danmuView';
-import { storeToRefs } from 'pinia';
-import Button from 'primevue/button';
-import Message from 'primevue/message';
-import ProgressSpinner from 'primevue/progressspinner';
-import { useToast } from 'primevue/usetoast';
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+
 import type { DanmuAttributes, DanmuMessage } from '../../types/api';
-import DanmuFilterDialog from '../dialogs/DanmuFilterDialog.vue';
 import { markPerformance } from '../../utils/observability';
-import type Artplayer from 'artplayer';
-import type { Option } from 'artplayer';
-import type { Danmu } from 'artplayer-plugin-danmuku';
+import DanmuFilterDialog from '../dialogs/DanmuFilterDialog.vue';
 
 interface QualityOption {
   label: string;
@@ -42,12 +44,6 @@ interface Props {
 }
 
 const props = defineProps<Props>();
-const toast = useToast();
-const hasShownAutoplayNotice = ref(false);
-const filterDialogVisible = ref(false);
-const uiStore = useUiStore();
-const danmuEnabledAtLoad = Boolean(uiStore.danmuEnabled);
-
 const emit = defineEmits<{
   retry: [];
   perspectiveChange: [perspectiveKey: string];
@@ -55,13 +51,23 @@ const emit = defineEmits<{
   danmu: [msg: DanmuMessage];
   danmuReset: [];
 }>();
+const toast = useToast();
+const hasShownAutoplayNotice = ref(false);
+const filterDialogVisible = ref(false);
+const uiStore = useUiStore();
+const danmuEnabledAtLoad = Boolean(uiStore.danmuEnabled);
 
 const container = ref<HTMLDivElement | null>(null);
 let player: Artplayer | null = null;
 let playerReady = false;
 const isStreamSwitching = ref(false);
 /** Hls instance for current stream; must be torn down before each new customType load and on player destroy. */
-let liveHls: { destroy: () => void } | null = null;
+let liveHls: {
+  destroy: () => void;
+  startLoad?: (startPosition?: number) => void;
+  recoverMediaError?: () => void;
+  liveSyncPosition?: number | null;
+} | null = null;
 let hlsMediaRecoveryCount = 0;
 let hlsLastMediaRecoveryAt = 0;
 let currentAppliedStreamUrl: string | null = null;
@@ -75,6 +81,16 @@ let pendingRoomId: string | null = null;
 let roomSwitchToken = 0;
 let connectingService: DanmuService | null = null;
 let playerMountToken = 0;
+let playerHealthTimer: number | null = null;
+let healthVideo: HTMLVideoElement | null = null;
+let playerHealthCleanup: (() => void) | null = null;
+let lastProgressCheckAt = 0;
+let lastObservedTime = 0;
+let stalledSince = 0;
+let lastRecoveryAt = 0;
+let lastUserGestureAt = 0;
+let userPausedPlayback = false;
+let retryRemountCount = 0;
 
 const danmuFilterStore = useDanmuFilterStore();
 const matchEngagementStore = useMatchEngagementStore();
@@ -227,6 +243,200 @@ function destroyAttachedHls() {
   hlsLastMediaRecoveryAt = 0;
 }
 
+function isDocumentVisible() {
+  return typeof document === 'undefined' || document.visibilityState !== 'hidden';
+}
+
+function getLiveEdgeTime(video: HTMLVideoElement) {
+  const hlsLiveSyncPosition = liveHls?.liveSyncPosition;
+  if (typeof hlsLiveSyncPosition === 'number' && Number.isFinite(hlsLiveSyncPosition)) {
+    return hlsLiveSyncPosition;
+  }
+
+  const buffered = video.buffered;
+  if (!buffered.length) {
+    return null;
+  }
+
+  return buffered.end(buffered.length - 1);
+}
+
+function seekNearLiveEdge(video: HTMLVideoElement) {
+  const liveEdge = getLiveEdgeTime(video);
+  if (liveEdge === null) {
+    return false;
+  }
+
+  const targetTime = Math.max(0, liveEdge - 1.5);
+  if (Number.isFinite(targetTime) && Math.abs(video.currentTime - targetTime) > 0.8) {
+    video.currentTime = targetTime;
+    return true;
+  }
+
+  return false;
+}
+
+function tryPlayVideo(video: HTMLVideoElement) {
+  const playResult = video.play();
+  if (playResult && typeof playResult.catch === 'function') {
+    playResult.catch(() => {
+      // Autoplay can be denied after user interaction changes; leave controls available.
+    });
+  }
+}
+
+function triggerStreamRecovery(video: HTMLVideoElement, forceRemount = false) {
+  if (!props.streamUrl || !playerReady || !player || !isDocumentVisible()) {
+    return;
+  }
+
+  const now = Date.now();
+  if (!forceRemount && now - lastRecoveryAt < 2500) {
+    return;
+  }
+  lastRecoveryAt = now;
+
+  if (!forceRemount) {
+    try {
+      liveHls?.startLoad?.();
+      seekNearLiveEdge(video);
+      tryPlayVideo(video);
+      return;
+    } catch (error) {
+      console.warn('[LivePlayer] soft stream recovery failed', error);
+    }
+  }
+
+  retryRemountCount += 1;
+  if (retryRemountCount === 1) {
+    emit('retry');
+    return;
+  }
+
+  retryRemountCount = 0;
+  void remountCurrentStream(props.streamUrl);
+}
+
+async function remountCurrentStream(url: string) {
+  if (!container.value) {
+    return;
+  }
+
+  isStreamSwitching.value = true;
+  try {
+    await exitPipIfNeeded();
+    if (props.streamUrl !== url) {
+      return;
+    }
+    destroyPlayer();
+    latestRequestedStreamUrl = url;
+    await mountPlayer(url);
+  } finally {
+    isStreamSwitching.value = false;
+  }
+}
+
+function stopPlayerHealthMonitor() {
+  playerHealthCleanup?.();
+  playerHealthCleanup = null;
+  if (playerHealthTimer !== null) {
+    window.clearInterval(playerHealthTimer);
+    playerHealthTimer = null;
+  }
+  healthVideo = null;
+  lastProgressCheckAt = 0;
+  lastObservedTime = 0;
+  stalledSince = 0;
+  lastRecoveryAt = 0;
+  lastUserGestureAt = 0;
+  userPausedPlayback = false;
+  retryRemountCount = 0;
+}
+
+function checkPlayerHealth() {
+  const video = healthVideo;
+  if (!video || !props.streamUrl || !playerReady || !player || !isDocumentVisible()) {
+    return;
+  }
+
+  const now = Date.now();
+  const currentTime = video.currentTime;
+  const progressed = Math.abs(currentTime - lastObservedTime) > 0.08;
+
+  if (!lastProgressCheckAt || progressed) {
+    lastObservedTime = currentTime;
+    lastProgressCheckAt = now;
+    stalledSince = 0;
+    retryRemountCount = 0;
+    return;
+  }
+
+  const readyToPlay = video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA;
+  const likelyStalled = !video.paused && !video.ended && !progressed && now - lastProgressCheckAt > 6000;
+  const passivePause = video.paused && !video.ended && !userPausedPlayback && now - lastUserGestureAt > 1500;
+
+  if (passivePause || likelyStalled || !readyToPlay) {
+    if (!stalledSince) {
+      stalledSince = now;
+    }
+    triggerStreamRecovery(video, now - stalledSince > 14000);
+  }
+}
+
+function startPlayerHealthMonitor(video: HTMLVideoElement) {
+  stopPlayerHealthMonitor();
+  healthVideo = video;
+  lastObservedTime = video.currentTime;
+  lastProgressCheckAt = Date.now();
+
+  const markUserGesture = () => {
+    lastUserGestureAt = Date.now();
+  };
+  const onPlay = () => {
+    userPausedPlayback = false;
+    retryRemountCount = 0;
+  };
+  const onPause = () => {
+    userPausedPlayback = Date.now() - lastUserGestureAt < 1500;
+  };
+  const onWaiting = () => {
+    if (!stalledSince) {
+      stalledSince = Date.now();
+    }
+    triggerStreamRecovery(video);
+  };
+  const onVisibilityReturn = () => {
+    if (isDocumentVisible() && !userPausedPlayback && !video.ended) {
+      liveHls?.startLoad?.();
+      tryPlayVideo(video);
+    }
+  };
+
+  container.value?.addEventListener('pointerdown', markUserGesture, { passive: true });
+  container.value?.addEventListener('keydown', markUserGesture);
+  video.addEventListener('play', onPlay);
+  video.addEventListener('pause', onPause);
+  video.addEventListener('waiting', onWaiting);
+  video.addEventListener('stalled', onWaiting);
+  video.addEventListener('suspend', onWaiting);
+  document.addEventListener('visibilitychange', onVisibilityReturn);
+  window.addEventListener('pageshow', onVisibilityReturn);
+
+  playerHealthTimer = window.setInterval(checkPlayerHealth, 2500);
+
+  playerHealthCleanup = () => {
+    container.value?.removeEventListener('pointerdown', markUserGesture);
+    container.value?.removeEventListener('keydown', markUserGesture);
+    video.removeEventListener('play', onPlay);
+    video.removeEventListener('pause', onPause);
+    video.removeEventListener('waiting', onWaiting);
+    video.removeEventListener('stalled', onWaiting);
+    video.removeEventListener('suspend', onWaiting);
+    document.removeEventListener('visibilitychange', onVisibilityReturn);
+    window.removeEventListener('pageshow', onVisibilityReturn);
+  };
+}
+
 async function exitPipIfNeeded() {
   const vid = container.value?.querySelector('video');
   if (!vid || document.pictureInPictureElement !== vid) {
@@ -265,6 +475,7 @@ function destroyPlayer() {
   playerMountToken += 1;
   streamSwitchToken += 1;
   isStreamSwitching.value = false;
+  stopPlayerHealthMonitor();
   destroyAttachedHls();
   if (player) {
     player.destroy(false);
@@ -306,7 +517,7 @@ function waitForVideoPlayable(video: HTMLVideoElement | null, timeoutMs = 2200):
     video.addEventListener('playing', onReady, { once: true });
     video.addEventListener('loadeddata', onReady, { once: true });
 
-    setTimeout(() => finish(), timeoutMs);
+    setTimeout(finish, timeoutMs);
   });
 }
 
@@ -575,9 +786,36 @@ function updateQualityControl() {
     return;
   }
   const qualityItems = buildQualityItems();
-  const p = player as Artplayer & { controls?: { remove?: (name: string) => void } };
+  const p = player as Artplayer & {
+    controls?: {
+      remove?: (name: string) => void;
+      update?: (option: NonNullable<Option['controls']>[number]) => void;
+    };
+  };
   if (qualityItems.length > 1) {
-    player.quality = qualityItems;
+    const selectedQuality = qualityItems.find((item) => item.default) ?? qualityItems[0];
+    p.controls?.update?.({
+      name: 'quality',
+      position: 'right',
+      index: 10,
+      style: {
+        marginRight: '10px',
+      },
+      html: selectedQuality?.html ?? '',
+      selector: qualityItems,
+      async onSelect(item) {
+        const url = typeof item.url === 'string' ? item.url : '';
+        const value = typeof item.value === 'string' ? item.value : '';
+        if (url && player) {
+          await player.switchQuality(url);
+          currentAppliedStreamUrl = url;
+        }
+        if (value) {
+          emit('qualityChange', value);
+        }
+        return item.html;
+      },
+    });
   } else {
     try {
       p.controls?.remove?.('quality');
@@ -585,23 +823,6 @@ function updateQualityControl() {
       // no quality control to remove
     }
   }
-}
-
-function patchNativeQualityChange() {
-  const currentPlayer = player as (Artplayer & { switchQuality?: (url: string) => Promise<void> }) | null;
-  if (!currentPlayer?.switchQuality) {
-    return;
-  }
-
-  const originalSwitchQuality = currentPlayer.switchQuality.bind(currentPlayer);
-  currentPlayer.switchQuality = async (url: string) => {
-    const matched = (props.qualityOptions ?? []).find((item) => item.src === url);
-    await originalSwitchQuality(url);
-    currentAppliedStreamUrl = url;
-    if (matched?.value) {
-      emit('qualityChange', matched.value);
-    }
-  };
 }
 
 function applyMobileInlineVideoAttrs() {
@@ -645,7 +866,6 @@ async function mountPlayer(url: string) {
   const artplayerPluginDanmuku = danmukuModule?.default;
   const artplayerPluginChromecast = chromecastModule?.default;
 
-  const qualityItems = buildQualityItems();
   const playerSettings = buildPlayerSettings();
 
   const plugins: any[] = [];
@@ -690,7 +910,6 @@ async function mountPlayer(url: string) {
     pip: !uiStore.isMobile,
     fullscreen: !uiStore.isMobile,
     fullscreenWeb: true,
-    ...(qualityItems.length > 1 ? { quality: qualityItems } : {}),
     airplay: true,
     gesture: true,
     screenshot: false,
@@ -722,6 +941,7 @@ async function mountPlayer(url: string) {
             maxMaxBufferLength: 40,
             maxBufferHole: 0.8,
             liveSyncDurationCount: 3,
+            liveMaxLatencyDurationCount: 8,
             maxLiveSyncPlaybackRate: 1.2,
             liveSyncOnStallIncrease: 1,
             nudgeOffset: 0.12,
@@ -805,7 +1025,6 @@ async function mountPlayer(url: string) {
 
   player = new ArtplayerCtor(playerOptions);
   currentAppliedStreamUrl = url;
-  patchNativeQualityChange();
   applyMobileInlineVideoAttrs();
   danmukuPlugin = danmuEnabledAtLoad ? (player as any).plugins?.artplayerPluginDanmuku : null;
 
@@ -817,6 +1036,10 @@ async function mountPlayer(url: string) {
 
     playerReady = true;
     applyMobileInlineVideoAttrs();
+    const video = container.value?.querySelector('video') ?? null;
+    if (video) {
+      startPlayerHealthMonitor(video);
+    }
     markPerformance('rm-player-ready');
     danmukuPlugin = danmuEnabledAtLoad ? (player as any).plugins?.artplayerPluginDanmuku : null;
     updateQualityControl();
@@ -995,7 +1218,7 @@ onBeforeUnmount(async () => {
     </div>
 
     <div v-if="isStreamSwitching && !loading && !errorMessage" class="overlay center overlay-soft" aria-live="polite">
-      <ProgressSpinner style="width: 2rem; height: 2rem" strokeWidth="6" />
+      <ProgressSpinner style="width: 2rem; height: 2rem" stroke-width="6" />
       <span class="switching-tip">切换清晰度中...</span>
     </div>
 

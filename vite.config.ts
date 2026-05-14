@@ -1,6 +1,7 @@
+import path from 'node:path';
+
 import tailwindcss from '@tailwindcss/vite';
 import vue from '@vitejs/plugin-vue';
-import path from 'node:path';
 import { visualizer } from 'rollup-plugin-visualizer';
 import { defineConfig } from 'vite';
 import { mockDevServerPlugin } from 'vite-plugin-mock-dev-server';
@@ -56,12 +57,12 @@ export default defineConfig(({ mode }) => {
         prefix: ['/live_json'],
       }),
       VitePWA({
-        registerType: 'autoUpdate',
+        registerType: 'prompt',
         strategies: 'injectManifest',
         srcDir: 'src',
         filename: 'sw.ts',
         manifest: {
-          name: 'RMLive - Better 直播间',
+          name: 'RMLive - 不一样的直播间',
           short_name: 'RMLive',
           description: '更清晰的赛事视图，更顺滑的直播体验。',
           start_url: './',
@@ -111,7 +112,7 @@ export default defineConfig(({ mode }) => {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,woff,ttf}'],
         },
         devOptions: {
-          enabled: true,
+          enabled: false,
         },
       }),
       isAnalyze
