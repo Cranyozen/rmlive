@@ -1,6 +1,14 @@
 import { userInfoRequestEvent, userInfoResponseEvent } from './constants/userInfoEvents';
 import { UserInfo } from './types/user';
 
+declare const __RMLIVE_IFRAME_APP_URL__: string | undefined;
+
+const fallbackAppUrl = 'https://rmlive.scutbot.cn';
+const configuredAppUrl =
+  typeof __RMLIVE_IFRAME_APP_URL__ === 'string' && __RMLIVE_IFRAME_APP_URL__.trim()
+    ? __RMLIVE_IFRAME_APP_URL__.trim()
+    : fallbackAppUrl;
+
 const pageContent = document.querySelector<HTMLElement>('.page-content');
 const mountPoint = pageContent ?? document.body;
 
@@ -38,8 +46,7 @@ if (existingIframe) {
 }
 
 const iframe = document.createElement('iframe') as HTMLIFrameElement;
-// iframe.src = 'https://rmlive.scutbot.cn';
-iframe.src = `http://localhost:5173`;
+iframe.src = configuredAppUrl;
 iframe.id = 'rm-live-iframe';
 iframe.allowFullscreen = true;
 iframe.allow = 'autoplay; fullscreen; picture-in-picture; notifications; permissions; periodic-sync';

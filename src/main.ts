@@ -9,11 +9,57 @@ import { registerSW } from 'virtual:pwa-register';
 import { createApp } from 'vue';
 import App from './App.vue';
 
+function isFullscreenLikeActive() {
+  const doc = document as Document & {
+    webkitFullscreenElement?: Element | null;
+    mozFullScreenElement?: Element | null;
+    msFullscreenElement?: Element | null;
+  };
+
+  return Boolean(
+    doc.fullscreenElement ||
+      doc.webkitFullscreenElement ||
+      doc.mozFullScreenElement ||
+      doc.msFullscreenElement ||
+      document.querySelector('.art-fullscreen-web'),
+  );
+}
+
+function reloadWhenFullscreenIsIdle() {
+  if (!isFullscreenLikeActive()) {
+    window.location.reload();
+    return;
+  }
+
+  const reload = () => {
+    cleanup();
+    window.location.reload();
+  };
+  const reloadAfterFullscreenExit = () => {
+    if (!isFullscreenLikeActive()) {
+      reload();
+    }
+  };
+  const cleanup = () => {
+    document.removeEventListener('fullscreenchange', reloadAfterFullscreenExit);
+    document.removeEventListener('webkitfullscreenchange', reloadAfterFullscreenExit);
+    document.removeEventListener('mozfullscreenchange', reloadAfterFullscreenExit);
+    document.removeEventListener('MSFullscreenChange', reloadAfterFullscreenExit);
+    window.removeEventListener('pagehide', reload);
+  };
+
+  document.addEventListener('fullscreenchange', reloadAfterFullscreenExit);
+  document.addEventListener('webkitfullscreenchange', reloadAfterFullscreenExit);
+  document.addEventListener('mozfullscreenchange', reloadAfterFullscreenExit);
+  document.addEventListener('MSFullscreenChange', reloadAfterFullscreenExit);
+  window.addEventListener('pagehide', reload, { once: true });
+}
+
 const updateServiceWorker = registerSW({
   immediate: true,
   onNeedRefresh() {
     void updateServiceWorker(true).then(() => {
-      window.location.reload();
+      reloadWhenFullscreenIsIdle();
     });
   },
 });

@@ -422,6 +422,22 @@ function updateQualityControl() {
   }
 }
 
+function applyMobileInlineVideoAttrs() {
+  if (!uiStore.isMobile) {
+    return;
+  }
+
+  const video = container.value?.querySelector('video');
+  if (!video) {
+    return;
+  }
+
+  video.setAttribute('playsinline', 'true');
+  video.setAttribute('webkit-playsinline', 'true');
+  video.setAttribute('x5-playsinline', 'true');
+  video.setAttribute('x5-video-player-type', 'h5-page');
+}
+
 async function mountPlayer(url: string) {
   if (!container.value) {
     return;
@@ -471,8 +487,8 @@ async function mountPlayer(url: string) {
     subtitleOffset: false,
     hotkey: true,
     pip: !uiStore.isMobile,
-    fullscreen: true,
-    fullscreenWeb: !uiStore.isMobile,
+    fullscreen: !uiStore.isMobile,
+    fullscreenWeb: true,
     ...(qualityItems.length > 1 ? { quality: qualityItems } : {}),
     airplay: true,
     gesture: true,
@@ -482,6 +498,9 @@ async function mountPlayer(url: string) {
     playsInline: true,
     autoOrientation: true,
     lock: true,
+    moreVideoAttr: {
+      playsInline: true,
+    },
     settings: danmuEnabledAtLoad
       ? [
           {
@@ -524,11 +543,13 @@ async function mountPlayer(url: string) {
   };
 
   player = new Artplayer(playerOptions);
+  applyMobileInlineVideoAttrs();
   danmukuPlugin = danmuEnabledAtLoad ? (player as any).plugins?.artplayerPluginDanmuku : null;
 
   // Some browsers still require an explicit play attempt after source mount.
   player.on('ready', () => {
     playerReady = true;
+    applyMobileInlineVideoAttrs();
     danmukuPlugin = danmuEnabledAtLoad ? (player as any).plugins?.artplayerPluginDanmuku : null;
     updateQualityControl();
     flushPendingDanmu();

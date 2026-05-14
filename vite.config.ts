@@ -11,6 +11,7 @@ export default defineConfig(({ mode }) => {
   const isAnalyze = mode === 'analyze';
   const isBuildIFrame = process.env.VITE_BUILD_IFRAME === 'true' || mode === 'iframe';
   const useRmLiveJsonMock = process.env.VITE_RM_MOCK === '1';
+  const iframeAppUrl = process.env.VITE_IFRAME_APP_URL ?? 'https://rmlive.scutbot.cn';
 
   if (isBuildIFrame) {
     // Build iframe-inject.js as a standalone IIFE
@@ -18,6 +19,7 @@ export default defineConfig(({ mode }) => {
       plugins: [],
       define: {
         'process.env.NODE_ENV': JSON.stringify('production'),
+        __RMLIVE_IFRAME_APP_URL__: JSON.stringify(iframeAppUrl),
       },
       resolve: {
         alias: {
