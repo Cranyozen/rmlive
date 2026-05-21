@@ -16,7 +16,10 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://www.robomaster.com/*"],
+      "matches": [
+        "https://www.robomaster.com/live*",
+        "https://www.robomaster.com/*/live*"
+      ],
       "js": ["iframe-inject.js"],
       "run_at": "document_idle"
     }
@@ -35,9 +38,25 @@
         "*.woff",
         "*.ttf"
       ],
-      "matches": ["https://www.robomaster.com/*"]
+      "matches": [
+        "https://www.robomaster.com/live*",
+        "https://www.robomaster.com/*/live*"
+      ]
     }
   ],
+  "permissions": ["storage", "activeTab"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "64": "pwa-64x64.png",
+      "128": "pwa-192x192.png"
+    },
+    "default_title": "RMLive 设置"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
   "host_permissions": [
     "https://www.robomaster.com/*",
     "https://bbs.robomaster.com/*",

@@ -5,7 +5,12 @@ declare const __RMLIVE_IFRAME_APP_URL__: string | undefined;
 declare const __RMLIVE_IS_EXTENSION__: boolean | undefined;
 
 // Minimal type for the Chrome extension API used here.
-declare const chrome: { runtime: { getURL: (path: string) => string } } | undefined;
+declare const chrome:
+  | {
+      runtime: { getURL: (path: string) => string };
+      storage: { local: { get: (keys: string[], cb: (result: Record<string, unknown>) => void) => void } };
+    }
+  | undefined;
 
 // In extension context, load the bundled app from the extension package.
 // Otherwise, fall back to the configured remote URL.
@@ -26,65 +31,89 @@ const resolveAppUrl = (): string => {
 
 const configuredAppUrl = resolveAppUrl();
 
-const pageContent = document.querySelector<HTMLElement>('.page-content');
-const mountPoint = pageContent ?? document.body;
+let iframe: HTMLIFrameElement | null = null;
+let iframeOrigin = '';
 
-if (pageContent) {
-  // Keep top navigation, but replace page-content area with iframe.
-  while (pageContent.firstChild) {
-    pageContent.removeChild(pageContent.firstChild);
+const mountIframe = () => {
+  const pageContent = document.querySelector<HTMLElement>('.page-content');
+  const mountPoint = pageContent ?? document.body;
+
+  if (pageContent) {
+    // Keep top navigation, but replace page-content area with iframe.
+    while (pageContent.firstChild) {
+      pageContent.removeChild(pageContent.firstChild);
+    }
+
+    const topOffset = Math.max(0, Math.round(pageContent.getBoundingClientRect().top));
+    pageContent.style.margin = '0';
+    pageContent.style.padding = '0';
+    pageContent.style.position = 'relative';
+    pageContent.style.overflow = 'hidden';
+    pageContent.style.height = `calc(100vh - ${topOffset}px)`;
+  } else {
+    // Fallback for pages without .page-content.
+    document.documentElement.style.margin = '0';
+    document.documentElement.style.height = '100%';
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.margin = '0';
+    document.body.style.height = '100%';
+    document.body.style.overflow = 'hidden';
   }
 
-  const topOffset = Math.max(0, Math.round(pageContent.getBoundingClientRect().top));
-  pageContent.style.margin = '0';
-  pageContent.style.padding = '0';
-  pageContent.style.position = 'relative';
-  pageContent.style.overflow = 'hidden';
-  pageContent.style.height = `calc(100vh - ${topOffset}px)`;
-} else {
-  // Fallback for pages without .page-content.
-  document.documentElement.style.margin = '0';
-  document.documentElement.style.height = '100%';
-  document.documentElement.style.overflow = 'hidden';
-  document.body.style.margin = '0';
-  document.body.style.height = '100%';
-  document.body.style.overflow = 'hidden';
+  const footer = document.querySelector<HTMLElement>('.footer');
+  if (footer) {
+    footer.style.display = 'none';
+  }
+
+  // Avoid creating duplicate iframes if the script runs more than once.
+  const existingIframe = document.getElementById('rm-live-iframe');
+  if (existingIframe) {
+    existingIframe.remove();
+  }
+
+  iframe = document.createElement('iframe') as HTMLIFrameElement;
+  iframe.src = configuredAppUrl;
+  iframe.id = 'rm-live-iframe';
+  iframe.allowFullscreen = true;
+  iframe.allow =
+    'autoplay; fullscreen; picture-in-picture; notifications; permissions; periodic-sync; vibrate';
+  iframe.style.width = '100%';
+  iframe.style.height = '100%';
+  iframe.style.border = '0';
+  iframe.style.display = 'block';
+
+  if (pageContent) {
+    iframe.style.position = 'absolute';
+    iframe.style.inset = '0';
+    iframe.style.zIndex = '1';
+  } else {
+    iframe.style.position = 'fixed';
+    iframe.style.inset = '0';
+    iframe.style.zIndex = '2147483647';
+  }
+  iframeOrigin = new URL(iframe.src, window.location.href).origin;
+
+  mountPoint.appendChild(iframe);
+  console.log('mounted rm-live iframe to', mountPoint);
+};
+
+const isLivePage = /https:\/\/www\.robomaster\.com\/([\w-]+\/)?live/.test(window.location.href);
+
+// When running as an extension, check the user's enable/disable setting first.
+if (isExtension && typeof chrome !== 'undefined' && chrome?.storage?.local) {
+  chrome.storage.local.get(['rmLiveEnabled'], (result: Record<string, unknown>) => {
+    const enabled = result['rmLiveEnabled'] !== false; // default true
+    if (enabled && isLivePage) {
+      mountIframe();
+    } else if (!isLivePage) {
+      console.log('[rmlive] Not a live page, skipping injection.');
+    } else {
+      console.log('[rmlive] Extension disabled by user setting.');
+    }
+  });
+} else if (isLivePage) {
+  mountIframe();
 }
-
-const footer = document.querySelector<HTMLElement>('.footer');
-if (footer) {
-  footer.style.display = 'none';
-}
-
-// Avoid creating duplicate iframes if the script runs more than once.
-const existingIframe = document.getElementById('rm-live-iframe');
-if (existingIframe) {
-  existingIframe.remove();
-}
-
-const iframe = document.createElement('iframe') as HTMLIFrameElement;
-iframe.src = configuredAppUrl;
-iframe.id = 'rm-live-iframe';
-iframe.allowFullscreen = true;
-iframe.allow = 'autoplay; fullscreen; picture-in-picture; notifications; permissions; periodic-sync; vibrate';
-iframe.style.width = '100%';
-iframe.style.height = '100%';
-iframe.style.border = '0';
-iframe.style.display = 'block';
-
-if (pageContent) {
-  iframe.style.position = 'absolute';
-  iframe.style.inset = '0';
-  iframe.style.zIndex = '1';
-} else {
-  iframe.style.position = 'fixed';
-  iframe.style.inset = '0';
-  iframe.style.zIndex = '2147483647';
-}
-const iframeOrigin = new URL(iframe.src, window.location.href).origin;
-
-mountPoint.appendChild(iframe);
-console.log('mounted rm-live iframe to', mountPoint);
 
 interface CookieUserInfo {
   nickname: string;
@@ -227,7 +256,7 @@ const getUserInfo = async (): Promise<UserInfo | null> => {
 };
 
 window.addEventListener('message', async (event: MessageEvent) => {
-  if (event.source !== iframe.contentWindow) {
+  if (!iframe || event.source !== iframe.contentWindow) {
     return;
   }
 
