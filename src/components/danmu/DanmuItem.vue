@@ -57,6 +57,8 @@ const sideClass = computed(() => {
   return '';
 });
 
+const isElectronicTenth = computed(() => props.message.badge === 'electronicTenth');
+
 const sideBadge = computed(() => {
   if (sideClass.value === 'is-red-side' || sideClass.value === 'is-blue-side') {
     return props.message.schoolName;
@@ -99,6 +101,8 @@ const year = computed(() => {
   return `${tooltipMeta.value.year}年${tooltipMeta.value.role}`;
 });
 
+const memberTag = computed(() => year.value);
+
 const filter = useDanmuFilterStore();
 const toast = useToast();
 const addFilterUser = () => {
@@ -126,12 +130,14 @@ const addFilterSchool = () => {
 </script>
 
 <template>
-  <article class="danmu-item" :class="sideClass" tabindex="0" @click="showTooltip" @focus="showTooltip">
+  <article class="danmu-item" :class="[sideClass, { 'is-electronic-tenth': isElectronicTenth }]" tabindex="0" @click="showTooltip" @focus="showTooltip">
     <aside class="meta-col">
       <p class="school">{{ school }}</p>
       <p class="nickname">{{ nickname }}</p>
-      <p class="time">{{ timeOnly }}</p>
-      <!-- <p v-if="sideBadge" class="side-badge">{{ sideBadge }}</p> -->
+      <p class="time-row">
+        <span class="time">{{ timeOnly }}</span>
+        <span v-if="memberTag" class="member-tag">{{ memberTag }}</span>
+      </p>
     </aside>
     <p class="content">{{ message.text }}</p>
 
@@ -182,13 +188,40 @@ const addFilterSchool = () => {
   box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.1);
 }
 
+/* Pure gold: full gold treatment */
+.danmu-item.is-electronic-tenth:not(.is-red-side):not(.is-blue-side) {
+  border-color: var(--danmu-tenth-border);
+  background: var(--danmu-tenth-bg);
+  box-shadow: var(--danmu-tenth-shadow);
+}
+
+/* Red side + gold: gradient border and background */
+.danmu-item.is-red-side.is-electronic-tenth {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(90deg, rgba(190, 24, 93, 0.3), rgba(161, 121, 3, 0.08) 50%) padding-box;
+  border-color: var(--danmu-tenth-border);
+  box-shadow: var(--danmu-tenth-shadow);
+  box-shadow: none;
+}
+
+/* Blue side + gold: gradient border and background */
+.danmu-item.is-blue-side.is-electronic-tenth {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(90deg, rgba(3, 105, 161, 0.3), rgba(161, 121, 3, 0.08) 50%) padding-box;
+  border-color: var(--danmu-tenth-border);
+  box-shadow: var(--danmu-tenth-shadow);
+  box-shadow: none;
+}
+
 .meta-col {
   min-width: 0;
 }
 
 .school,
 .nickname,
-.time {
+.time-row {
   margin: 0;
   line-height: 1.2;
   white-space: nowrap;
@@ -206,9 +239,46 @@ const addFilterSchool = () => {
   font-weight: 600;
 }
 
+.time-row {
+  display: flex;
+  align-items: center;
+  gap: 0.28rem;
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
 .time {
   font-size: 0.65rem;
   opacity: 0.72;
+  flex-shrink: 0;
+}
+
+.member-tag {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin-left: 0.28rem;
+  padding: 0.06rem 0.32rem;
+  border-radius: 999px;
+  font-size: 0.6rem;
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--danmu-member-tag-color);
+  background: var(--danmu-member-tag-bg);
+  border: 1px solid var(--danmu-member-tag-border);
+}
+
+.danmu-item.is-red-side .member-tag {
+  --member-tag-color: #fda4af;
+  --member-tag-bg: rgba(190, 24, 93, 0.18);
+  --member-tag-border: rgba(251, 113, 133, 0.32);
+}
+
+.danmu-item.is-blue-side .member-tag {
+  --member-tag-color: #7dd3fc;
+  --member-tag-bg: rgba(3, 105, 161, 0.18);
+  --member-tag-border: rgba(56, 189, 248, 0.32);
 }
 
 .side-badge {

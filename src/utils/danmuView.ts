@@ -12,6 +12,7 @@ export interface DanmuTooltipMeta {
   nickname: string;
   year: string;
   role: string;
+  badge: string;
   username: string;
   sourceLabel: string;
   timeLabel: string;
@@ -91,6 +92,7 @@ export function resolveTooltipMeta(msg: DanmuMessage): DanmuTooltipMeta {
     nickname,
     year: parsed?.year || '',
     role: parsed?.role || '',
+    badge: String(msg.badge || '').trim(),
     username: shouldShowUsername ? username : '',
     sourceLabel: msg.source === 'history' ? '历史弹幕' : '实时弹幕',
     timeLabel: new Date(msg.timestamp).toLocaleTimeString('zh-CN', { hour12: false }),
