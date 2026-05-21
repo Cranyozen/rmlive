@@ -6,7 +6,7 @@
   "browser_specific_settings": {
     "gecko": {
       "id": "rmlive@cranyozen.github.io",
-      "strict_min_version": "109.0",
+      "strict_min_version": "140.0",
       "data_collection_permissions": {
         "required": ["websiteContent"]
       }
@@ -14,7 +14,7 @@
   },
   "icons": {
     "64": "pwa-64x64.png",
-    "128": "pwa-192x192.png",
+    "192": "pwa-192x192.png",
     "512": "pwa-512x512.png"
   },
   "content_scripts": [
@@ -35,7 +35,7 @@
     "default_popup": "popup.html",
     "default_icon": {
       "64": "pwa-64x64.png",
-      "128": "pwa-192x192.png"
+      "192": "pwa-192x192.png"
     },
     "default_title": "RMLive 设置"
   },
