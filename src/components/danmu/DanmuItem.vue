@@ -308,8 +308,8 @@ const addFilterSchool = () => {
 .content {
   margin: 0;
   min-width: 0;
-  font-size: 0.74rem;
-  line-height: 1.25;
+  font-size: 0.8rem;
+  line-height: 1.3;
   white-space: normal;
   word-break: break-word;
   overflow-wrap: anywhere;
