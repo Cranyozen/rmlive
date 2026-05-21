@@ -57,3 +57,17 @@ jobs:
           coscmd upload -f -y -H '{"Cache-Control":"no-cache, no-store, must-revalidate"}' dist/sw.js /sw.js
           coscmd upload -f -y -H '{"Cache-Control":"no-cache, no-store, must-revalidate"}' dist/manifest.webmanifest /manifest.webmanifest
           coscmd upload -f -y -H '{"Cache-Control":"no-cache, no-store, must-revalidate"}' dist/iframe-inject.js /iframe-inject.js
+
+      - name: Purge Tencent CDN app shell cache
+        run: |
+          pipx install tccli
+          tccli configure set secretId "${{ secrets.TENCENT_CLOUD_SECRET_ID }}"
+          tccli configure set secretKey "${{ secrets.TENCENT_CLOUD_SECRET_KEY }}"
+          tccli configure set region "${{ secrets.COS_REGION }}"
+          tccli cdn PurgeUrlsCache --Urls '[
+            "https://rmlive.scutbot.cn/",
+            "https://rmlive.scutbot.cn/index.html",
+            "https://rmlive.scutbot.cn/sw.js",
+            "https://rmlive.scutbot.cn/manifest.webmanifest",
+            "https://rmlive.scutbot.cn/iframe-inject.js"
+          ]'

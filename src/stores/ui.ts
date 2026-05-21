@@ -7,6 +7,17 @@ const PK_ENABLED_KEY = 'rm-live-pk-enabled';
 const REACTION_ENABLED_KEY = 'rm-live-reaction-enabled';
 const DANMU_ENABLED_KEY = 'rm-live-danmu-enabled';
 const MOBILE_BREAKPOINT = 768;
+const TOUCH_MOBILE_BREAKPOINT = 1024;
+
+function isTouchMobileDevice() {
+  const ua = navigator.userAgent;
+  const mobileUa = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+  const iPadDesktopUa = /Macintosh/i.test(ua) && navigator.maxTouchPoints > 1;
+  const coarsePointer = window.matchMedia?.('(pointer: coarse)').matches ?? false;
+  const shortScreenSide = Math.min(window.screen.width, window.screen.height);
+
+  return mobileUa || iPadDesktopUa || (coarsePointer && shortScreenSide <= TOUCH_MOBILE_BREAKPOINT);
+}
 
 export interface SchedulePanelIntent {
   tab: 'schedule' | 'result';
@@ -66,7 +77,7 @@ export const useUiStore = defineStore('ui', () => {
   }
 
   function updateViewport() {
-    isMobile.value = window.innerWidth <= MOBILE_BREAKPOINT;
+    isMobile.value = window.innerWidth <= MOBILE_BREAKPOINT || isTouchMobileDevice();
   }
 
   function onResize() {
