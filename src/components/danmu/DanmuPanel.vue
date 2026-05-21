@@ -2,12 +2,9 @@
 import { useMatchEngagementStore } from '@/stores/matchEngagement';
 import { storeToRefs } from 'pinia';
 import ScrollTop from 'primevue/scrolltop';
-import Skeleton from 'primevue/skeleton';
-import VirtualScroller from 'primevue/virtualscroller';
 import { computed } from 'vue';
 import { useDanmuStore } from '../../stores/danmu';
 import { useDanmuFilterStore } from '../../stores/danmuFilter';
-import type { DanmuMessage } from '../../types/api';
 import DanmuItem from './DanmuItem.vue';
 
 const danmuStore = useDanmuStore();
@@ -16,7 +13,7 @@ const matchEngagementStore = useMatchEngagementStore();
 const { messages } = storeToRefs(danmuStore);
 const { viewerCount } = storeToRefs(matchEngagementStore);
 
-const virtualItems = computed<Array<DanmuMessage | null>>(() => {
+const filteredMessages = computed(() => {
   return messages.value.filter((message) => danmuFilterStore.matchMessage(message));
 });
 
@@ -32,29 +29,17 @@ const viewerCountLabel = computed(() => {
       <span class="list-meta-value">{{ viewerCountLabel }}</span>
     </div>
 
-    <VirtualScroller
-      v-if="virtualItems.length"
-      :items="virtualItems"
-      :itemSize="56"
-      :delay="60"
-      class="list-body danmu-virtual"
-      :style="{ height: '100%' }"
-    >
-      <template #item="slotProps">
-        <div v-if="slotProps.item" class="list-row">
-          <DanmuItem :message="slotProps.item" />
-        </div>
-        <div v-else class="list-row">
-          <Skeleton width="100%" height="2rem" />
-        </div>
-      </template>
-    </VirtualScroller>
+    <div v-if="filteredMessages.length" class="list-body danmu-scroll">
+      <div v-for="message in filteredMessages" :key="message.id" class="list-row">
+        <DanmuItem :message="message" />
+      </div>
+    </div>
 
     <div v-else class="list-body list-empty-wrap">
       <div class="list-empty">暂无弹幕</div>
     </div>
 
-    <ScrollTop target=".danmu-virtual" :threshold="120" icon="pi pi-arrow-up" />
+    <ScrollTop target=".danmu-scroll" :threshold="120" icon="pi pi-arrow-up" />
   </section>
 </template>
 
@@ -118,7 +103,4 @@ const viewerCountLabel = computed(() => {
   bottom: 0.75rem;
 }
 
-.list-body :deep(.p-virtualscroller-content) {
-  overflow-x: hidden;
-}
 </style>
