@@ -2,12 +2,29 @@ import { userInfoRequestEvent, userInfoResponseEvent } from './constants/userInf
 import { UserInfo } from './types/user';
 
 declare const __RMLIVE_IFRAME_APP_URL__: string | undefined;
+declare const __RMLIVE_IS_EXTENSION__: boolean | undefined;
 
-const fallbackAppUrl = 'https://rmlive.scutbot.cn';
-const configuredAppUrl =
-  typeof __RMLIVE_IFRAME_APP_URL__ === 'string' && __RMLIVE_IFRAME_APP_URL__.trim()
+// Minimal type for the Chrome extension API used here.
+declare const chrome: { runtime: { getURL: (path: string) => string } } | undefined;
+
+// In extension context, load the bundled app from the extension package.
+// Otherwise, fall back to the configured remote URL.
+const isExtension =
+  typeof __RMLIVE_IS_EXTENSION__ === 'boolean'
+    ? __RMLIVE_IS_EXTENSION__
+    : typeof chrome !== 'undefined' && !!chrome?.runtime?.getURL;
+
+const resolveAppUrl = (): string => {
+  if (isExtension && typeof chrome !== 'undefined' && chrome?.runtime?.getURL) {
+    return chrome.runtime.getURL('index.html');
+  }
+  const fallbackAppUrl = 'https://rmlive.scutbot.cn';
+  return typeof __RMLIVE_IFRAME_APP_URL__ === 'string' && __RMLIVE_IFRAME_APP_URL__.trim()
     ? __RMLIVE_IFRAME_APP_URL__.trim()
     : fallbackAppUrl;
+};
+
+const configuredAppUrl = resolveAppUrl();
 
 const pageContent = document.querySelector<HTMLElement>('.page-content');
 const mountPoint = pageContent ?? document.body;

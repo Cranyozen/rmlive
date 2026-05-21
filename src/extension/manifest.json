@@ -1,0 +1,47 @@
+{
+  "manifest_version": 3,
+  "name": "RMLive",
+  "version": "1.0.0",
+  "description": "更清晰的赛事视图，更顺滑的直播体验。",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "rmlive@scutbot.cn",
+      "strict_min_version": "109.0"
+    }
+  },
+  "icons": {
+    "64": "pwa-64x64.png",
+    "128": "pwa-192x192.png",
+    "512": "pwa-512x512.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.robomaster.com/*"],
+      "js": ["iframe-inject.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "index.html",
+        "assets/*",
+        "*.js",
+        "*.css",
+        "*.png",
+        "*.svg",
+        "*.ico",
+        "*.woff2",
+        "*.woff",
+        "*.ttf"
+      ],
+      "matches": ["https://www.robomaster.com/*"]
+    }
+  ],
+  "host_permissions": [
+    "https://www.robomaster.com/*",
+    "https://bbs.robomaster.com/*",
+    "https://saas.robomaster.com/*",
+    "https://rm-static.djicdn.com/*"
+  ]
+}
