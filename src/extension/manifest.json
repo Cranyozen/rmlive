@@ -39,8 +39,7 @@
         "*.ttf"
       ],
       "matches": [
-        "https://www.robomaster.com/live*",
-        "https://www.robomaster.com/*/live*"
+        "https://www.robomaster.com/*"
       ]
     }
   ],

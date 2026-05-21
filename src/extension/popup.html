@@ -72,7 +72,7 @@
         align-items: center;
         justify-content: space-between;
         gap: 12px;
-        padding: 13px 14px;
+        padding: 13px 14px 6px 14px;
       }
 
       .setting-label {
@@ -140,11 +140,40 @@
 
       .footer-hint {
         font-size: 11px;
+        text-align: center;
+        margin-bottom: 14px;
         color: var(--text-muted);
       }
 
       .footer-hint.visible {
         color: #4ade80;
+      }
+
+      .btn-open {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        width: 100%;
+        padding: 8px 12px;
+        margin-top: 8px;
+        background: var(--toggle-on);
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s ease;
+        font-family: inherit;
+      }
+
+      .btn-open:hover {
+        background: #0ea5e9;
+      }
+
+      .btn-open svg {
+        flex-shrink: 0;
       }
     </style>
   </head>
@@ -167,9 +196,17 @@
         <span class="toggle"></span>
       </label>
     </div>
+    <div id="hint" class="footer-hint">刷新 RoboMaster 页面后生效</div>
 
     <div class="footer">
-      <div id="hint" class="footer-hint">刷新 RoboMaster 页面后生效</div>
+      <button id="btn-open" class="btn-open">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+          <polyline points="15 3 21 3 21 9"/>
+          <line x1="10" y1="14" x2="21" y2="3"/>
+        </svg>
+        打开 RMLive 页面
+      </button>
     </div>
 
     <script src="popup.js"></script>

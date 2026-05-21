@@ -29,3 +29,8 @@ function showHint(enabled) {
     hint.className = 'footer-hint';
   }, 2000);
 }
+
+document.getElementById('btn-open').addEventListener('click', () => {
+  chrome.tabs.create({ url: chrome.runtime.getURL('index.html') });
+  window.close();
+});
