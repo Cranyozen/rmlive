@@ -178,13 +178,13 @@ const addFilterSchool = () => {
 
 .danmu-item.is-red-side {
   border-color: rgba(251, 113, 133, 0.82);
-  background: linear-gradient(90deg, rgba(190, 24, 93, 0.16), rgba(15, 23, 42, 0.03) 72%), rgba(190, 24, 93, 0.08);
+  background: linear-gradient(90deg, rgba(190, 24, 93, 0.5), transparent 50%);
   box-shadow: inset 0 0 0 1px rgba(251, 113, 133, 0.1);
 }
 
 .danmu-item.is-blue-side {
   border-color: rgba(56, 189, 248, 0.82);
-  background: linear-gradient(90deg, rgba(3, 105, 161, 0.16), rgba(15, 23, 42, 0.03) 72%), rgba(3, 105, 161, 0.08);
+  background: linear-gradient(90deg, rgba(3, 105, 161, 0.5), transparent 50%);
   box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.1);
 }
 
@@ -199,7 +199,7 @@ const addFilterSchool = () => {
 .danmu-item.is-red-side.is-electronic-tenth {
   border: 1px solid transparent;
   background:
-    linear-gradient(90deg, rgba(190, 24, 93, 0.3), rgba(161, 121, 3, 0.08) 50%) padding-box;
+    linear-gradient(90deg, rgba(190, 24, 93, 0.5), rgba(161, 121, 3, 0.2) 70%) padding-box;
   border-color: var(--danmu-tenth-border);
   box-shadow: var(--danmu-tenth-shadow);
   box-shadow: none;
@@ -209,7 +209,7 @@ const addFilterSchool = () => {
 .danmu-item.is-blue-side.is-electronic-tenth {
   border: 1px solid transparent;
   background:
-    linear-gradient(90deg, rgba(3, 105, 161, 0.3), rgba(161, 121, 3, 0.08) 50%) padding-box;
+    linear-gradient(90deg, rgba(3, 105, 161, 0.5), rgba(161, 121, 3, 0.2) 70%) padding-box;
   border-color: var(--danmu-tenth-border);
   box-shadow: var(--danmu-tenth-shadow);
   box-shadow: none;
