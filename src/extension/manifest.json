@@ -5,8 +5,11 @@
   "description": "更清晰的赛事视图，更顺滑的直播体验。",
   "browser_specific_settings": {
     "gecko": {
-      "id": "rmlive@scutbot.cn",
-      "strict_min_version": "109.0"
+      "id": "rmlive@cranyozen.github.io",
+      "strict_min_version": "109.0",
+      "data_collection_permissions": {
+        "required": ["websiteContent"]
+      }
     }
   },
   "icons": {
@@ -16,31 +19,15 @@
   },
   "content_scripts": [
     {
-      "matches": [
-        "https://www.robomaster.com/live*",
-        "https://www.robomaster.com/*/live*"
-      ],
+      "matches": ["https://www.robomaster.com/live*", "https://www.robomaster.com/*/live*"],
       "js": ["iframe-inject.js"],
       "run_at": "document_idle"
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": [
-        "index.html",
-        "assets/*",
-        "*.js",
-        "*.css",
-        "*.png",
-        "*.svg",
-        "*.ico",
-        "*.woff2",
-        "*.woff",
-        "*.ttf"
-      ],
-      "matches": [
-        "https://www.robomaster.com/*"
-      ]
+      "resources": ["index.html", "assets/*", "*.js", "*.css", "*.png", "*.svg", "*.ico", "*.woff2", "*.woff", "*.ttf"],
+      "matches": ["https://www.robomaster.com/*"]
     }
   ],
   "permissions": ["storage", "activeTab"],
