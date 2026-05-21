@@ -7,6 +7,7 @@ import Splitter from 'primevue/splitter';
 import SplitterPanel from 'primevue/splitterpanel';
 import { computed, defineAsyncComponent } from 'vue';
 import LivePlayer from '../live/LivePlayer.vue';
+import PerspectiveSwitcher from '../live/PerspectiveSwitcher.vue';
 import type { DanmuMessage } from '../../types/api';
 
 const dataStore = useRmDataStore();
@@ -68,6 +69,11 @@ function onDanmuReset() {
         <div class="live-column">
           <MatchFirepowerBar v-if="pkEnabled && hasCurrentMatch" />
           <div v-else-if="pkEnabled && showMatchDependentPlaceholder" class="firepower-slot" aria-hidden="true" />
+          <PerspectiveSwitcher
+            :perspectives="playerPerspectiveOptions"
+            :selected-key="selectedPerspectiveKey"
+            @select="onPerspectiveChange"
+          />
           <LivePlayer
             :stream-url="effectiveStreamUrl"
             :loading="streamLoading"
@@ -100,6 +106,11 @@ function onDanmuReset() {
     <div v-else class="live-column">
       <MatchFirepowerBar v-if="pkEnabled && hasCurrentMatch" />
       <div v-else-if="pkEnabled && showMatchDependentPlaceholder" class="firepower-slot" aria-hidden="true" />
+      <PerspectiveSwitcher
+        :perspectives="playerPerspectiveOptions"
+        :selected-key="selectedPerspectiveKey"
+        @select="onPerspectiveChange"
+      />
       <LivePlayer
         :stream-url="effectiveStreamUrl"
         :loading="streamLoading"

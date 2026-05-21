@@ -22,6 +22,30 @@ const liveGameInfo = {
           src: TEST_HLS,
         },
       ],
+      fpvData: [
+        {
+          role: '红方机器人视角',
+          headimg: '',
+          sources: [
+            {
+              label: '720p',
+              res: 'high',
+              src: TEST_HLS,
+            },
+          ],
+        },
+        {
+          role: '蓝方机器人视角',
+          headimg: '',
+          sources: [
+            {
+              label: '720p',
+              res: 'high',
+              src: TEST_HLS,
+            },
+          ],
+        },
+      ],
     },
   ],
 };

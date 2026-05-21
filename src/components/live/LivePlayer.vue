@@ -30,6 +30,7 @@ interface QualityOption {
 interface PerspectiveOption {
   label: string;
   value: string;
+  headimg: string | null;
 }
 
 interface Props {
@@ -728,30 +729,6 @@ function buildQualityItems() {
 function buildPlayerSettings() {
   const settings: NonNullable<Option['settings']> = [];
 
-  const perspectiveOptions = props.perspectiveOptions ?? [];
-  if (perspectiveOptions.length > 1) {
-    const selectedPerspective =
-      perspectiveOptions.find((item) => item.value === props.selectedPerspectiveKey) ?? perspectiveOptions[0];
-    settings.push({
-      name: 'perspective',
-      html: '视角',
-      tooltip: selectedPerspective?.label ?? '主视角',
-      icon: '',
-      selector: perspectiveOptions.map((item) => ({
-        html: item.label,
-        value: item.value,
-        default: item.value === selectedPerspective?.value,
-      })),
-      onSelect(item) {
-        const value = typeof item.value === 'string' ? item.value : '';
-        if (value) {
-          emit('perspectiveChange', value);
-        }
-        return item.html;
-      },
-    });
-  }
-
   if (danmuEnabledAtLoad) {
     settings.push({
       html: filterActive.value ? `过滤 ${activeFilterCount.value}` : '过滤',
@@ -770,24 +747,81 @@ function buildPlayerSettings() {
   return settings;
 }
 
-function updatePerspectiveSetting() {
+const PERSPECTIVE_ICON_VIDEO = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><path d="M4 6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2.5l4 3.5V6.5L18 10V8a2 2 0 0 0-2-2H4z"/></svg>`;
+const PERSPECTIVE_ICON_CAMERA = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4z"/><path d="M9 3 7.17 5H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3.17L15 3H9zm3 15a5 5 0 1 1 0-10 5 5 0 0 1 0 10z"/></svg>`;
+
+function buildPerspectiveIconHtml(item: { value: string; headimg: string | null }): string {
+  if (item.headimg) {
+    return `<img src="${item.headimg}" width="16" height="16" style="border-radius:50%;object-fit:cover;flex-shrink:0" alt="">`;
+  }
+  return item.value === 'main' ? PERSPECTIVE_ICON_VIDEO : PERSPECTIVE_ICON_CAMERA;
+}
+
+function getPerspectiveColor(label: string): string {
+  if (label.includes('红')) return 'rgba(252,165,165,0.95)';
+  if (label.includes('蓝')) return 'rgba(147,197,253,0.95)';
+  return '';
+}
+
+function trimPerspectiveLabel(label: string): string {
+  return label.replace(/第.视角/g, '').trim();
+}
+
+function updatePerspectiveControl() {
   if (!player || !playerReady) {
     return;
   }
 
-  const perspectiveSetting = buildPlayerSettings().find((item) => item.name === 'perspective');
+  const perspectiveOptions = props.perspectiveOptions ?? [];
   const p = player as Artplayer & {
-    setting?: { update?: (option: NonNullable<Option['settings']>[number]) => void; remove?: (name: string) => void };
+    controls?: {
+      remove?: (name: string) => void;
+      update?: (option: NonNullable<Option['controls']>[number]) => void;
+    };
   };
 
-  try {
-    if (perspectiveSetting) {
-      p.setting?.update?.(perspectiveSetting);
-    } else {
-      p.setting?.remove?.('perspective');
+  if (perspectiveOptions.length > 1) {
+    const selectedPerspective =
+      perspectiveOptions.find((item) => item.value === props.selectedPerspectiveKey) ?? perspectiveOptions[0];
+    const btnIconHtml = buildPerspectiveIconHtml(selectedPerspective ?? perspectiveOptions[0]);
+    p.controls?.update?.({
+      name: 'perspective',
+      position: 'right',
+      index: 9,
+      style: { marginRight: '10px' },
+      html: `<span style="display:inline-flex;align-items:center;gap:4px">${btnIconHtml}${trimPerspectiveLabel(selectedPerspective?.label ?? '视角')}</span>`,
+      mounted(el: HTMLElement) {
+        const list = el.querySelector<HTMLElement>('.art-selector-list');
+        if (list) {
+          list.style.display = 'grid';
+          list.style.gridTemplateColumns = '1fr 1fr';
+          list.style.minWidth = '220px';
+          list.classList.add('art-perspective-list');
+        }
+      },
+      selector: perspectiveOptions.map((item) => {
+        const color = getPerspectiveColor(item.label);
+        const colorStyle = color ? `color:${color};` : '';
+        return {
+          html: `<span style="display:inline-flex;align-items:center;gap:6px;${colorStyle}">${buildPerspectiveIconHtml(item)}${trimPerspectiveLabel(item.label)}</span>`,
+          value: item.value,
+          default: item.value === selectedPerspective?.value,
+        };
+      }),
+      onSelect(item) {
+        const value = typeof item.value === 'string' ? item.value : '';
+        if (value) {
+          emit('perspectiveChange', value);
+        }
+        return item.html;
+      },
+    });
+  } else {
+    try {
+      p.controls?.remove?.('perspective');
+    } catch {
+      // no perspective control to remove
     }
-  } catch {
-    // Ignore menu refresh races while Artplayer is mounting.
   }
 }
 
@@ -1053,7 +1087,7 @@ async function mountPlayer(url: string) {
     markPerformance('rm-player-ready');
     danmukuPlugin = danmuEnabledAtLoad ? (player as any).plugins?.artplayerPluginDanmuku : null;
     updateQualityControl();
-    updatePerspectiveSetting();
+    updatePerspectiveControl();
     syncDanmuConnection();
     flushPendingDanmu();
     try {
@@ -1194,7 +1228,7 @@ watch(
 watch(
   () => [props.perspectiveOptions, props.selectedPerspectiveKey] as const,
   () => {
-    updatePerspectiveSetting();
+    updatePerspectiveControl();
   },
 );
 
@@ -1229,7 +1263,7 @@ onBeforeUnmount(async () => {
 
     <div v-if="isStreamSwitching && !loading && !errorMessage" class="overlay center overlay-soft" aria-live="polite">
       <ProgressSpinner style="width: 2rem; height: 2rem" stroke-width="6" />
-      <span class="switching-tip">切换清晰度中...</span>
+      <span class="switching-tip">切换中...</span>
     </div>
 
     <div ref="container" class="player-container" />
@@ -1303,5 +1337,12 @@ onBeforeUnmount(async () => {
   .player-shell {
     min-height: 190px;
   }
+}
+
+:deep(.art-perspective-list .art-selector-item.art-current) {
+  background: rgba(56, 189, 248, 0.22);
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.6);
+  font-weight: 600;
 }
 </style>

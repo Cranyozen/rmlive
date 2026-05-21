@@ -20,6 +20,7 @@ export interface PlayerQualityOption {
 export interface PlayerPerspectiveOption {
   label: string;
   value: string;
+  headimg: string | null;
 }
 
 export function toPlayerQualityOptions(zone: PlayableZoneLike | null): PlayerQualityOption[] {
@@ -35,11 +36,12 @@ export function toPlayerQualityOptions(zone: PlayableZoneLike | null): PlayerQua
 }
 
 export function toPlayerPerspectiveOptions(
-  perspectives: Array<{ key: string; label: string }> | null | undefined,
+  perspectives: Array<{ key: string; label: string; headimg?: string | null }> | null | undefined,
 ): PlayerPerspectiveOption[] {
   return (perspectives ?? []).map((item) => ({
     label: item.label,
     value: item.key,
+    headimg: item.headimg ?? null,
   }));
 }
 
