@@ -178,13 +178,13 @@ const addFilterSchool = () => {
 
 .danmu-item.is-red-side {
   border-color: rgba(251, 113, 133, 0.82);
-  background: linear-gradient(90deg, rgba(190, 24, 93, 0.5), transparent 50%) var(--danmu-item-bg);
+  background: linear-gradient(90deg, rgba(190, 24, 93, 0.5), var(--danmu-item-bg) 72%);
   box-shadow: inset 0 0 0 1px rgba(251, 113, 133, 0.1);
 }
 
 .danmu-item.is-blue-side {
   border-color: rgba(56, 189, 248, 0.82);
-  background: linear-gradient(90deg, rgba(3, 105, 161, 0.5), transparent 50%) var(--danmu-item-bg);
+  background: linear-gradient(90deg, rgba(3, 105, 161, 0.5), var(--danmu-item-bg) 72%);
   box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.1);
 }
 
@@ -199,7 +199,7 @@ const addFilterSchool = () => {
 .danmu-item.is-red-side.is-electronic-tenth {
   border: 1px solid transparent;
   background:
-    linear-gradient(90deg, rgba(190, 24, 93, 0.5), rgba(161, 121, 3, 0.2) 50%) padding-box var(--danmu-item-bg);
+    linear-gradient(90deg, rgba(190, 24, 93, 0.5), rgba(161, 121, 3, 0.2) 50%) padding-box;
   border-color: var(--danmu-tenth-border);
   box-shadow: var(--danmu-tenth-shadow);
   box-shadow: none;
