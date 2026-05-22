@@ -38,19 +38,35 @@ describe('resolveDefaultQualityRes', () => {
     expect(selected).toBe('720');
   });
 
-  it('falls back to first quality when selection is missing', () => {
+  it('prefers middle quality when selection is missing', () => {
     const selected = resolveDefaultQualityRes(
       {
         zoneName: 'A',
         qualities: [
-          { label: '1080p', res: '1080', src: 'https://a' },
-          { label: '720p', res: '720', src: 'https://b' },
+          { label: '1080p', res: 'high', src: 'https://a' },
+          { label: '720p', res: 'middle', src: 'https://b' },
+          { label: '540p', res: 'low', src: 'https://c' },
         ],
       },
-      '540',
+      null,
     );
 
-    expect(selected).toBe('1080');
+    expect(selected).toBe('middle');
+  });
+
+  it('falls back to first quality when middle quality is unavailable', () => {
+    const selected = resolveDefaultQualityRes(
+      {
+        zoneName: 'A',
+        qualities: [
+          { label: '1080p', res: 'high', src: 'https://a' },
+          { label: '540p', res: 'low', src: 'https://b' },
+        ],
+      },
+      null,
+    );
+
+    expect(selected).toBe('high');
   });
 });
 

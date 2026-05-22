@@ -56,7 +56,8 @@ export function resolveDefaultQualityRes(
     return selectedQualityRes;
   }
 
-  return zone.qualities[0]?.res ?? null;
+  const smoothDefault = zone.qualities.find((item) => item.res === 'middle');
+  return smoothDefault?.res ?? zone.qualities[0]?.res ?? null;
 }
 
 export function resolveEffectiveStreamErrorMessage(

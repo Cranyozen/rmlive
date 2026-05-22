@@ -91,6 +91,7 @@ let pendingBootstrapSnapshot = false;
 let pendingPatchKeys = new Set<keyof RmDataSnapshot>();
 let snapshotVersion = 0;
 let lastPostedSnapshot: RmDataSnapshot | null = null;
+let hasManualQualitySelection = false;
 
 const SNAPSHOT_KEYS: Array<keyof RmDataSnapshot> = [
   'liveGameInfo',
@@ -278,7 +279,7 @@ function syncSelectionAfterDataChange() {
           qualities: selectedPerspective.qualities,
         }
       : null,
-    state.selectedQualityRes,
+    hasManualQualitySelection ? state.selectedQualityRes : null,
   );
 }
 
@@ -820,6 +821,7 @@ function handleInit(payload: RmDataInitPayload) {
   state.selectedQualityRes = payload.selectedQualityRes;
   state.selectedPerspectiveKey = payload.selectedPerspectiveKey;
   state.hasManualZoneSelection = payload.hasManualZoneSelection;
+  hasManualQualitySelection = false;
   state.streamLoading = true;
   state.streamErrorMessage = '';
   state.visible = true;
@@ -875,6 +877,7 @@ self.addEventListener('message', (event: MessageEvent<RmDataWorkerIncomingMessag
   }
 
   if (data.type === 'USER_SELECT_QUALITY') {
+    hasManualQualitySelection = true;
     state.selectedQualityRes =
       data.payload.qualityRes && data.payload.qualityRes.trim() ? data.payload.qualityRes : null;
     syncSelectionAfterDataChange();
