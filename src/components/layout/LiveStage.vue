@@ -63,8 +63,8 @@ function onDanmuReset() {
 
 <template>
   <section class="main-grid">
-    <Splitter v-if="!isMobile && danmuEnabledAtLoad" layout="horizontal" :style="{ height: '100%' }">
-      <SplitterPanel :size="75" :minSize="50">
+    <Splitter v-if="!isMobile && danmuEnabledAtLoad" layout="horizontal" class="desktop-live-splitter">
+      <SplitterPanel :size="75" :minSize="50" class="live-panel-wrap">
         <div class="live-column">
           <MatchFirepowerBar v-if="pkEnabled && hasCurrentMatch" />
           <div v-else-if="pkEnabled && showMatchDependentPlaceholder" class="firepower-slot" aria-hidden="true" />
@@ -133,9 +133,19 @@ function onDanmuReset() {
   gap: 1rem;
   grid-template-columns: 1fr;
   min-width: 0;
+  min-height: 0;
 }
 
 .live-column {
+  min-width: 0;
+}
+
+.desktop-live-splitter {
+  height: fit-content;
+  align-items: stretch;
+}
+
+.live-panel-wrap {
   min-width: 0;
 }
 
@@ -159,6 +169,9 @@ function onDanmuReset() {
 .danmu-panel-wrap {
   display: flex;
   flex-direction: column;
+  align-self: stretch;
+  min-height: 0;
+  min-width: 0;
   overflow: hidden;
 }
 
