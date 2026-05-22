@@ -92,10 +92,7 @@ let lastUserGestureAt = 0;
 let userPausedPlayback = false;
 let retryRemountCount = 0;
 
-const BUFFER_AHEAD_RECOVERY_THRESHOLD = 0.35;
-const STABLE_LIVE_EDGE_DELAY_SECONDS = 6;
 const SOFT_RECOVERY_MIN_INTERVAL_MS = 5000;
-const FORCE_REMOUNT_STALL_MS = 28000;
 
 const danmuFilterStore = useDanmuFilterStore();
 const matchEngagementStore = useMatchEngagementStore();
@@ -262,48 +259,6 @@ function isDocumentVisible() {
   return typeof document === 'undefined' || document.visibilityState !== 'hidden';
 }
 
-function getLiveEdgeTime(video: HTMLVideoElement) {
-  const hlsLiveSyncPosition = liveHls?.liveSyncPosition;
-  if (typeof hlsLiveSyncPosition === 'number' && Number.isFinite(hlsLiveSyncPosition)) {
-    return hlsLiveSyncPosition;
-  }
-
-  const buffered = video.buffered;
-  if (!buffered.length) {
-    return null;
-  }
-
-  return buffered.end(buffered.length - 1);
-}
-
-function getBufferedAhead(video: HTMLVideoElement) {
-  const { buffered, currentTime } = video;
-  for (let i = 0; i < buffered.length; i += 1) {
-    const start = buffered.start(i);
-    const end = buffered.end(i);
-    if (currentTime >= start && currentTime <= end) {
-      return Math.max(0, end - currentTime);
-    }
-  }
-
-  return 0;
-}
-
-function seekToStableBufferedPosition(video: HTMLVideoElement) {
-  const liveEdge = getLiveEdgeTime(video);
-  if (liveEdge === null) {
-    return false;
-  }
-
-  const targetTime = Math.max(0, liveEdge - STABLE_LIVE_EDGE_DELAY_SECONDS);
-  if (Number.isFinite(targetTime) && Math.abs(video.currentTime - targetTime) > 0.8) {
-    video.currentTime = targetTime;
-    return true;
-  }
-
-  return false;
-}
-
 function tryPlayVideo(video: HTMLVideoElement) {
   const playResult = video.play();
   if (playResult && typeof playResult.catch === 'function') {
@@ -326,10 +281,7 @@ function triggerStreamRecovery(video: HTMLVideoElement, forceRemount = false) {
 
   if (!forceRemount) {
     try {
-      liveHls?.startLoad?.(Number.isFinite(video.currentTime) ? video.currentTime : undefined);
-      if (video.readyState < HTMLMediaElement.HAVE_FUTURE_DATA || getBufferedAhead(video) < BUFFER_AHEAD_RECOVERY_THRESHOLD) {
-        seekToStableBufferedPosition(video);
-      }
+      liveHls?.startLoad?.();
       tryPlayVideo(video);
       return;
     } catch (error) {
@@ -409,7 +361,7 @@ function checkPlayerHealth() {
     if (!stalledSince) {
       stalledSince = now;
     }
-    triggerStreamRecovery(video, now - stalledSince > FORCE_REMOUNT_STALL_MS);
+    triggerStreamRecovery(video, now - stalledSince > 20000);
   }
 }
 
@@ -963,32 +915,32 @@ async function mountPlayer(url: string) {
           const hlsBufferStalledDetail = (HlsCtor as any).ErrorDetails?.BUFFER_STALLED_ERROR ?? 'bufferStalledError';
 
           const hls = new HlsCtor({
-            // Favor continuity over low latency: keep a deeper live buffer and avoid chasing the edge.
+            // Favor continuity over low latency, while leaving timeline control to HLS/video.
             lowLatencyMode: false,
             liveDurationInfinity: true,
             liveSyncMode: 'buffered',
             backBufferLength: 30,
-            maxBufferLength: 45,
-            maxMaxBufferLength: 90,
-            maxBufferHole: 1.5,
-            liveSyncDurationCount: 6,
-            liveMaxLatencyDurationCount: 18,
-            maxLiveSyncPlaybackRate: 1.05,
-            liveSyncOnStallIncrease: 2,
-            nudgeOffset: 0.2,
-            nudgeMaxRetry: 12,
+            maxBufferLength: 30,
+            maxMaxBufferLength: 60,
+            maxBufferHole: 1,
+            liveSyncDurationCount: 5,
+            liveMaxLatencyDurationCount: 15,
+            maxLiveSyncPlaybackRate: 1,
+            liveSyncOnStallIncrease: 1,
+            nudgeOffset: 0.1,
+            nudgeMaxRetry: 6,
             enableWorker: true,
             startFragPrefetch: true,
             testBandwidth: false,
-            manifestLoadingMaxRetry: 8,
+            manifestLoadingMaxRetry: 6,
             manifestLoadingRetryDelay: 700,
-            manifestLoadingMaxRetryTimeout: 8000,
-            levelLoadingMaxRetry: 8,
+            manifestLoadingMaxRetryTimeout: 6000,
+            levelLoadingMaxRetry: 6,
             levelLoadingRetryDelay: 1000,
-            levelLoadingMaxRetryTimeout: 10000,
-            fragLoadingMaxRetry: 10,
+            levelLoadingMaxRetryTimeout: 8000,
+            fragLoadingMaxRetry: 8,
             fragLoadingRetryDelay: 1000,
-            fragLoadingMaxRetryTimeout: 15000,
+            fragLoadingMaxRetryTimeout: 12000,
             startLevel: -1,
           });
 
