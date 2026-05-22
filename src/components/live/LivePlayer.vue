@@ -92,6 +92,11 @@ let lastUserGestureAt = 0;
 let userPausedPlayback = false;
 let retryRemountCount = 0;
 
+const BUFFER_AHEAD_RECOVERY_THRESHOLD = 0.35;
+const STABLE_LIVE_EDGE_DELAY_SECONDS = 6;
+const SOFT_RECOVERY_MIN_INTERVAL_MS = 5000;
+const FORCE_REMOUNT_STALL_MS = 28000;
+
 const danmuFilterStore = useDanmuFilterStore();
 const matchEngagementStore = useMatchEngagementStore();
 const userInfoStore = useUserInfoStore();
@@ -271,13 +276,26 @@ function getLiveEdgeTime(video: HTMLVideoElement) {
   return buffered.end(buffered.length - 1);
 }
 
-function seekNearLiveEdge(video: HTMLVideoElement) {
+function getBufferedAhead(video: HTMLVideoElement) {
+  const { buffered, currentTime } = video;
+  for (let i = 0; i < buffered.length; i += 1) {
+    const start = buffered.start(i);
+    const end = buffered.end(i);
+    if (currentTime >= start && currentTime <= end) {
+      return Math.max(0, end - currentTime);
+    }
+  }
+
+  return 0;
+}
+
+function seekToStableBufferedPosition(video: HTMLVideoElement) {
   const liveEdge = getLiveEdgeTime(video);
   if (liveEdge === null) {
     return false;
   }
 
-  const targetTime = Math.max(0, liveEdge - 1.5);
+  const targetTime = Math.max(0, liveEdge - STABLE_LIVE_EDGE_DELAY_SECONDS);
   if (Number.isFinite(targetTime) && Math.abs(video.currentTime - targetTime) > 0.8) {
     video.currentTime = targetTime;
     return true;
@@ -301,15 +319,17 @@ function triggerStreamRecovery(video: HTMLVideoElement, forceRemount = false) {
   }
 
   const now = Date.now();
-  if (!forceRemount && now - lastRecoveryAt < 2500) {
+  if (!forceRemount && now - lastRecoveryAt < SOFT_RECOVERY_MIN_INTERVAL_MS) {
     return;
   }
   lastRecoveryAt = now;
 
   if (!forceRemount) {
     try {
-      liveHls?.startLoad?.();
-      seekNearLiveEdge(video);
+      liveHls?.startLoad?.(Number.isFinite(video.currentTime) ? video.currentTime : undefined);
+      if (video.readyState < HTMLMediaElement.HAVE_FUTURE_DATA || getBufferedAhead(video) < BUFFER_AHEAD_RECOVERY_THRESHOLD) {
+        seekToStableBufferedPosition(video);
+      }
       tryPlayVideo(video);
       return;
     } catch (error) {
@@ -382,14 +402,14 @@ function checkPlayerHealth() {
   }
 
   const readyToPlay = video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA;
-  const likelyStalled = !video.paused && !video.ended && !progressed && now - lastProgressCheckAt > 6000;
+  const likelyStalled = !video.paused && !video.ended && !progressed && now - lastProgressCheckAt > 8000;
   const passivePause = video.paused && !video.ended && !userPausedPlayback && now - lastUserGestureAt > 1500;
 
   if (passivePause || likelyStalled || !readyToPlay) {
     if (!stalledSince) {
       stalledSince = now;
     }
-    triggerStreamRecovery(video, now - stalledSince > 14000);
+    triggerStreamRecovery(video, now - stalledSince > FORCE_REMOUNT_STALL_MS);
   }
 }
 
@@ -943,32 +963,32 @@ async function mountPlayer(url: string) {
           const hlsBufferStalledDetail = (HlsCtor as any).ErrorDetails?.BUFFER_STALLED_ERROR ?? 'bufferStalledError';
 
           const hls = new HlsCtor({
-            // Favor stability over ultra-low latency to avoid frequent stalls on mobile networks.
+            // Favor continuity over low latency: keep a deeper live buffer and avoid chasing the edge.
             lowLatencyMode: false,
             liveDurationInfinity: true,
             liveSyncMode: 'buffered',
-            backBufferLength: 20,
-            maxBufferLength: 20,
-            maxMaxBufferLength: 40,
-            maxBufferHole: 0.8,
-            liveSyncDurationCount: 3,
-            liveMaxLatencyDurationCount: 8,
-            maxLiveSyncPlaybackRate: 1.2,
-            liveSyncOnStallIncrease: 1,
-            nudgeOffset: 0.12,
-            nudgeMaxRetry: 8,
+            backBufferLength: 30,
+            maxBufferLength: 45,
+            maxMaxBufferLength: 90,
+            maxBufferHole: 1.5,
+            liveSyncDurationCount: 6,
+            liveMaxLatencyDurationCount: 18,
+            maxLiveSyncPlaybackRate: 1.05,
+            liveSyncOnStallIncrease: 2,
+            nudgeOffset: 0.2,
+            nudgeMaxRetry: 12,
             enableWorker: true,
             startFragPrefetch: true,
             testBandwidth: false,
-            manifestLoadingMaxRetry: 4,
-            manifestLoadingRetryDelay: 500,
-            manifestLoadingMaxRetryTimeout: 4000,
-            levelLoadingMaxRetry: 5,
-            levelLoadingRetryDelay: 700,
-            levelLoadingMaxRetryTimeout: 6000,
-            fragLoadingMaxRetry: 6,
-            fragLoadingRetryDelay: 800,
-            fragLoadingMaxRetryTimeout: 10000,
+            manifestLoadingMaxRetry: 8,
+            manifestLoadingRetryDelay: 700,
+            manifestLoadingMaxRetryTimeout: 8000,
+            levelLoadingMaxRetry: 8,
+            levelLoadingRetryDelay: 1000,
+            levelLoadingMaxRetryTimeout: 10000,
+            fragLoadingMaxRetry: 10,
+            fragLoadingRetryDelay: 1000,
+            fragLoadingMaxRetryTimeout: 15000,
             startLevel: -1,
           });
 
