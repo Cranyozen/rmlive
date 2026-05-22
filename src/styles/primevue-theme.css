@@ -37,6 +37,9 @@
 }
 
 html.app-dark {
+  /* Dark Mode Background */
+  background-color: rgb(20, 20, 20);
+
   /* Dark Mode Scoreboard */
   --scoreboard-bg-light: linear-gradient(135deg, rgb(2 6 23 / 0.72), rgb(30 58 138 / 0.34));
   --scoreboard-border: rgb(96 165 250 / 0.35);
