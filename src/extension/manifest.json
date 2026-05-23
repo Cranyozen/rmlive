@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "RMLive",
+  "name": "RMLive Unofficial",
   "version": "1.0.0",
   "description": "更清晰的赛事视图，更顺滑的直播体验。",
   "browser_specific_settings": {
@@ -37,7 +37,7 @@
       "64": "pwa-64x64.png",
       "192": "pwa-192x192.png"
     },
-    "default_title": "RMLive 设置"
+    "default_title": "RMLive Unofficial 设置"
   },
   "options_ui": {
     "page": "options.html",

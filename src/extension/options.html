@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>RMLive 设置</title>
+    <title>RMLive Unofficial 设置</title>
     <style>
       *,
       *::before,
@@ -189,8 +189,351 @@
         text-decoration: none;
       }
 
-      .footer a:hover {
-        text-decoration: underline;
+      /* Radio-based URL mode selector */
+      .radio-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 10px;
+      }
+
+      .radio-option {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 9px 12px;
+        border-radius: 7px;
+        border: 1px solid transparent;
+        cursor: pointer;
+        transition: border-color 0.15s, background 0.15s;
+      }
+
+      .radio-option:hover {
+        background: rgba(56, 189, 248, 0.07);
+        border-color: var(--border);
+      }
+
+      .radio-option input[type='radio'] {
+        appearance: none;
+        -webkit-appearance: none;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        border: 2px solid var(--toggle-off);
+        background: transparent;
+        cursor: pointer;
+        flex-shrink: 0;
+        transition: border-color 0.15s;
+        position: relative;
+      }
+
+      .radio-option input[type='radio']:checked {
+        border-color: var(--accent);
+      }
+
+      .radio-option input[type='radio']:checked::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--accent);
+      }
+
+      .radio-option input[type='radio']:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+
+      .radio-label {
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text);
+        line-height: 1.3;
+      }
+
+      .radio-label span {
+        display: block;
+        font-size: 11px;
+        font-weight: 400;
+        color: var(--text-muted);
+        margin-top: 1px;
+      }
+
+      /* Custom URL list section */
+      .custom-section {
+        display: none;
+        margin-top: 10px;
+        border-top: 1px solid var(--border);
+        padding-top: 10px;
+      }
+
+      .custom-section.visible {
+        display: block;
+      }
+
+      .custom-section-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 8px;
+      }
+
+      .custom-section-title {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      .btn-add-url {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 10px;
+        background: var(--accent-dim);
+        color: var(--accent);
+        border: 1px solid rgba(56, 189, 248, 0.3);
+        border-radius: 5px;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        font-family: inherit;
+        transition: background 0.15s, border-color 0.15s;
+      }
+
+      .btn-add-url:hover {
+        background: rgba(56, 189, 248, 0.25);
+      }
+
+      .url-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-bottom: 8px;
+      }
+
+      .url-list-empty {
+        padding: 14px;
+        text-align: center;
+        font-size: 12px;
+        color: var(--text-muted);
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px dashed var(--border);
+        border-radius: 7px;
+      }
+
+      .url-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 9px 10px;
+        border-radius: 7px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.02);
+        cursor: pointer;
+        transition: border-color 0.15s, background 0.15s;
+      }
+
+      .url-item:hover {
+        border-color: var(--accent);
+        background: var(--accent-dim);
+      }
+
+      .url-item.active {
+        border-color: var(--accent);
+        background: var(--accent-dim);
+      }
+
+      .url-dot-wrap {
+        flex-shrink: 0;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        border: 2px solid var(--toggle-off);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: border-color 0.15s;
+      }
+
+      .url-item.active .url-dot-wrap {
+        border-color: var(--accent);
+      }
+
+      .url-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--accent);
+        opacity: 0;
+        transition: opacity 0.15s;
+      }
+
+      .url-item.active .url-dot {
+        opacity: 1;
+      }
+
+      .url-item-body {
+        flex: 1;
+        min-width: 0;
+        pointer-events: none;
+      }
+
+      .url-item-label {
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .url-item-url {
+        font-size: 11px;
+        color: var(--text-muted);
+        font-family: 'Menlo', 'Consolas', monospace;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-top: 1px;
+      }
+
+      .url-item-actions {
+        display: flex;
+        gap: 2px;
+        flex-shrink: 0;
+      }
+
+      .btn-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 26px;
+        height: 26px;
+        border: none;
+        border-radius: 5px;
+        background: transparent;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: background 0.15s, color 0.15s;
+      }
+
+      .btn-icon:hover {
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--text);
+      }
+
+      .btn-icon.btn-delete:hover {
+        background: rgba(248, 113, 113, 0.15);
+        color: #f87171;
+      }
+
+      /* Inline edit form */
+      .url-item.editing {
+        flex-direction: column;
+        align-items: stretch;
+        cursor: default;
+      }
+
+      .url-item.editing:hover {
+        border-color: var(--accent);
+      }
+
+      .url-edit-inputs {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        width: 100%;
+      }
+
+      .url-edit-input {
+        width: 100%;
+        padding: 7px 9px;
+        border-radius: 5px;
+        border: 1px solid var(--border);
+        background: var(--bg);
+        color: var(--text);
+        font-size: 12px;
+        font-family: inherit;
+        outline: none;
+        transition: border-color 0.15s;
+      }
+
+      .url-edit-input.mono {
+        font-family: 'Menlo', 'Consolas', monospace;
+      }
+
+      .url-edit-input:focus {
+        border-color: var(--accent);
+      }
+
+      .url-edit-input::placeholder {
+        color: var(--text-muted);
+        opacity: 0.6;
+      }
+
+      .url-edit-hint {
+        font-size: 11px;
+        color: var(--text-muted);
+        min-height: 14px;
+      }
+
+      .url-edit-hint.error {
+        color: #f87171;
+      }
+
+      .url-edit-btns {
+        display: flex;
+        gap: 6px;
+        margin-top: 2px;
+      }
+
+      .btn-save {
+        padding: 5px 14px;
+        background: var(--toggle-on);
+        color: #fff;
+        border: none;
+        border-radius: 5px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        font-family: inherit;
+        transition: background 0.15s;
+      }
+
+      .btn-save:hover {
+        background: #0ea5e9;
+      }
+
+      .btn-cancel {
+        padding: 5px 12px;
+        background: transparent;
+        color: var(--text-muted);
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        font-size: 12px;
+        cursor: pointer;
+        font-family: inherit;
+        transition: color 0.15s, border-color 0.15s;
+      }
+
+      .btn-cancel:hover {
+        color: var(--text);
+        border-color: var(--text-muted);
+      }
+
+      .save-indicator {
+        font-size: 11px;
+        color: #4ade80;
+        margin-top: 6px;
+        min-height: 16px;
+        opacity: 0;
+        transition: opacity 0.3s;
       }
     </style>
   </head>
@@ -199,7 +542,7 @@
       <div class="header">
         <img src="pwa-64x64.png" alt="RMLive" />
         <div class="header-text">
-          <h1>RMLive</h1>
+          <h1>RMLive Unofficial</h1>
           <p>浏览器扩展设置</p>
         </div>
       </div>
@@ -218,8 +561,56 @@
         </div>
       </div>
 
+      <div class="card" style="margin-top: 16px;">
+        <div class="setting-row" style="flex-direction: column; align-items: stretch;">
+          <div class="setting-info">
+            <div class="setting-label">注入页面来源</div>
+            <div class="setting-desc">选择嵌入到官网的 RMLive 页面地址</div>
+          </div>
+          <div class="radio-group">
+            <label class="radio-option">
+              <input type="radio" name="url-mode" value="builtin" checked />
+              <div class="radio-label">
+                内置（扩展内）
+                <span>使用扩展包内置的离线版本，无需网络访问 RMLive 服务器</span>
+              </div>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="url-mode" value="official" />
+              <div class="radio-label">
+                官方托管
+                <span>rmlive.scutbot.cn — 始终使用最新版本</span>
+              </div>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="url-mode" value="custom" />
+              <div class="radio-label">
+                自定义 URL
+                <span>从自定义列表中选择 RMLive 部署地址</span>
+              </div>
+            </label>
+          </div>
+
+          <div id="custom-section" class="custom-section">
+            <div class="custom-section-header">
+              <span class="custom-section-title">自定义 URL 列表</span>
+              <button id="btn-add-url" class="btn-add-url">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                添加
+              </button>
+            </div>
+            <div id="url-list" class="url-list"></div>
+          </div>
+
+          <div id="save-indicator" class="save-indicator"></div>
+        </div>
+      </div>
+
       <div class="footer">
         <p>更改即时生效，刷新 RoboMaster 页面后生效。</p>
+        <p>RMLive Unofficial 不是 SCUTRobotLab (华南虎战队) 官方产品。</p>
+        <p>Made with ❤️ by the community.</p>
+        <p><a href="https://github.com/Cranyozen/rmlive" target="_blank">GitHub</a> | <a href="https://github.com/scutrobotlab/rmlive/blob/920ae1da0881b7873f29146eb006ed3325d31f17/LICENSE" target="_blank">GPL-3.0 license</a></p>
       </div>
     </div>
 

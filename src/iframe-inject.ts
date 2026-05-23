@@ -8,7 +8,14 @@ declare const __RMLIVE_IS_EXTENSION__: boolean | undefined;
 declare const chrome:
   | {
       runtime: { getURL: (path: string) => string };
-      storage: { local: { get: (keys: string[], cb: (result: Record<string, unknown>) => void) => void } };
+      storage: {
+        local: { get: (keys: string[], cb: (result: Record<string, unknown>) => void) => void };
+        onChanged: {
+          addListener: (
+            cb: (changes: Record<string, { newValue?: unknown }>, area: string) => void,
+          ) => void;
+        };
+      };
     }
   | undefined;
 
@@ -19,22 +26,45 @@ const isExtension =
     ? __RMLIVE_IS_EXTENSION__
     : typeof chrome !== 'undefined' && !!chrome?.runtime?.getURL;
 
-const resolveAppUrl = (): string => {
-  if (isExtension && typeof chrome !== 'undefined' && chrome?.runtime?.getURL) {
-    return chrome.runtime.getURL('index.html');
-  }
-  const fallbackAppUrl = 'https://rmlive.scutbot.cn';
+const OFFICIAL_URL = 'https://rmlive.scutbot.cn';
+
+/** Resolve the app URL for non-extension (userscript / direct-embed) contexts. */
+const resolveNonExtensionUrl = (): string => {
   return typeof __RMLIVE_IFRAME_APP_URL__ === 'string' && __RMLIVE_IFRAME_APP_URL__.trim()
     ? __RMLIVE_IFRAME_APP_URL__.trim()
-    : fallbackAppUrl;
+    : OFFICIAL_URL;
 };
 
-const configuredAppUrl = resolveAppUrl();
+/**
+ * Resolve the app URL for extension contexts based on the user's stored preference.
+ * Modes:
+ *   'builtin'  (default) — bundled app inside the extension package
+ *   'official'           — rmlive.scutbot.cn
+ *   'custom'             — user-supplied URL (falls back to builtin if invalid)
+ */
+const resolveExtensionUrl = (storageResult: Record<string, unknown>): string => {
+  const mode = String(storageResult['rmLiveUrlMode'] ?? 'builtin');
+  if (mode === 'official') {
+    return OFFICIAL_URL;
+  }
+  if (mode === 'custom') {
+    const customUrl = String(storageResult['rmLiveCustomUrl'] ?? '').trim();
+    if (customUrl.startsWith('http://') || customUrl.startsWith('https://')) {
+      return customUrl;
+    }
+    // Invalid custom URL — fall through to builtin
+  }
+  // 'builtin' or fallback
+  if (typeof chrome !== 'undefined' && chrome?.runtime?.getURL) {
+    return chrome.runtime.getURL('index.html');
+  }
+  return OFFICIAL_URL;
+};
 
 let iframe: HTMLIFrameElement | null = null;
 let iframeOrigin = '';
 
-const mountIframe = () => {
+const mountIframe = (appUrl: string) => {
   const pageContent = document.querySelector<HTMLElement>('.page-content');
   const mountPoint = pageContent ?? document.body;
 
@@ -72,7 +102,7 @@ const mountIframe = () => {
   }
 
   iframe = document.createElement('iframe') as HTMLIFrameElement;
-  iframe.src = configuredAppUrl;
+  iframe.src = appUrl;
   iframe.id = 'rm-live-iframe';
   iframe.allowFullscreen = true;
   iframe.allow =
@@ -101,18 +131,60 @@ const isLivePage = /https:\/\/www\.robomaster\.com\/([\w-]+\/)?live/.test(window
 
 // When running as an extension, check the user's enable/disable setting first.
 if (isExtension && typeof chrome !== 'undefined' && chrome?.storage?.local) {
-  chrome.storage.local.get(['rmLiveEnabled'], (result: Record<string, unknown>) => {
-    const enabled = result['rmLiveEnabled'] !== false; // default true
-    if (enabled && isLivePage) {
-      mountIframe();
-    } else if (!isLivePage) {
-      console.log('[rmlive] Not a live page, skipping injection.');
-    } else {
-      console.log('[rmlive] Extension disabled by user setting.');
-    }
-  });
+  chrome.storage.local.get(
+    ['rmLiveEnabled', 'rmLiveUrlMode', 'rmLiveCustomUrl'],
+    (result: Record<string, unknown>) => {
+      const enabled = result['rmLiveEnabled'] !== false; // default true
+      if (enabled && isLivePage) {
+        mountIframe(resolveExtensionUrl(result));
+      } else if (!isLivePage) {
+        console.log('[rmlive] Not a live page, skipping injection.');
+      } else {
+        console.log('[rmlive] Extension disabled by user setting.');
+      }
+    },
+  );
+
+  // React to settings changes without requiring a full page reload.
+  chrome.storage.onChanged?.addListener(
+    (changes: Record<string, { newValue?: unknown }>, area: string) => {
+      if (area !== 'local') return;
+      if (!isLivePage) return;
+
+      const urlChanged = 'rmLiveUrlMode' in changes || 'rmLiveCustomUrl' in changes;
+      const enabledChanged = 'rmLiveEnabled' in changes;
+      if (!urlChanged && !enabledChanged) return;
+
+      // Re-read all relevant keys so resolveExtensionUrl gets a complete picture.
+      chrome!.storage.local.get(
+        ['rmLiveEnabled', 'rmLiveUrlMode', 'rmLiveCustomUrl'],
+        (result: Record<string, unknown>) => {
+          const enabled = result['rmLiveEnabled'] !== false;
+          if (!enabled) {
+            // Remove iframe if extension was disabled.
+            const existing = document.getElementById('rm-live-iframe');
+            if (existing) existing.remove();
+            iframe = null;
+            return;
+          }
+          const newUrl = resolveExtensionUrl(result);
+          if (iframe) {
+            // Swap src in-place — no full remount needed.
+            if (iframe.src !== newUrl) {
+              iframe.src = newUrl;
+              iframeOrigin = new URL(newUrl, window.location.href).origin;
+              console.log('[rmlive] iframe src updated to', newUrl);
+            }
+          } else {
+            // Extension was re-enabled — remount.
+            mountIframe(newUrl);
+          }
+        },
+      );
+    },
+  );
 } else if (isLivePage) {
-  mountIframe();
+  mountIframe(resolveNonExtensionUrl());
 }
 
 interface CookieUserInfo {

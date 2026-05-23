@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>RMLive</title>
+    <title>RMLive Unofficial</title>
     <style>
       *,
       *::before,
@@ -175,13 +175,146 @@
       .btn-open svg {
         flex-shrink: 0;
       }
+
+      .btn-settings {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        width: 100%;
+        padding: 8px 12px;
+        margin-top: 6px;
+        background: transparent;
+        color: var(--text-muted);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: color 0.15s, border-color 0.15s, background 0.15s;
+        font-family: inherit;
+      }
+
+      .btn-settings:hover {
+        color: var(--text);
+        border-color: var(--text-muted);
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .btn-settings svg {
+        flex-shrink: 0;
+      }
+
+      .divider {
+        height: 1px;
+        background: var(--border);
+        margin: 2px 0;
+      }
+
+      .url-mode-row {
+        padding: 10px 14px 4px;
+      }
+
+      .url-mode-label {
+        font-size: 11px;
+        color: var(--text-muted);
+        margin-bottom: 5px;
+        font-weight: 500;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+      }
+
+      .url-mode-select {
+        width: 100%;
+        padding: 6px 8px;
+        background: var(--surface);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-size: 12px;
+        font-family: inherit;
+        outline: none;
+        cursor: pointer;
+        appearance: none;
+        -webkit-appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2394a3b8' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 8px center;
+        padding-right: 24px;
+        transition: border-color 0.15s;
+      }
+
+      .url-mode-select:focus {
+        border-color: var(--accent);
+      }
+
+      .custom-url-wrap {
+        display: none;
+        padding: 4px 14px 6px;
+      }
+
+      .custom-url-wrap.visible {
+        display: block;
+      }
+
+      .custom-url-select {
+        width: 100%;
+        padding: 6px 24px 6px 8px;
+        background: var(--surface);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-size: 12px;
+        font-family: inherit;
+        outline: none;
+        cursor: pointer;
+        appearance: none;
+        -webkit-appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2394a3b8' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 8px center;
+        transition: border-color 0.15s;
+      }
+
+      .custom-url-select:focus {
+        border-color: var(--accent);
+      }
+
+      .custom-url-empty {
+        font-size: 11px;
+        color: var(--text-muted);
+        line-height: 1.5;
+      }
+
+      .btn-manage {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        margin-top: 5px;
+        padding: 5px 10px;
+        background: var(--surface);
+        color: var(--accent);
+        border: 1px solid rgba(56, 189, 248, 0.3);
+        border-radius: 5px;
+        font-size: 11px;
+        font-weight: 500;
+        cursor: pointer;
+        font-family: inherit;
+        width: 100%;
+        justify-content: center;
+        transition: background 0.15s;
+      }
+
+      .btn-manage:hover {
+        background: rgba(56, 189, 248, 0.1);
+      }
     </style>
   </head>
   <body>
     <div class="header">
-      <img src="pwa-64x64.png" alt="RMLive" />
+      <img src="pwa-64x64.png" alt="RMLive Unofficial" />
       <div>
-        <div class="header-title">RMLive</div>
+        <div class="header-title">RMLive Unofficial</div>
         <div class="header-sub">直播增强插件</div>
       </div>
     </div>
@@ -198,6 +331,20 @@
     </div>
     <div id="hint" class="footer-hint">刷新 RoboMaster 页面后生效</div>
 
+    <div class="divider"></div>
+
+    <div class="url-mode-row">
+      <div class="url-mode-label">注入页面来源</div>
+      <select id="url-mode-select" class="url-mode-select">
+        <option value="builtin">内置（扩展内）</option>
+        <option value="official">官方托管 (rmlive.scutbot.cn)</option>
+        <option value="custom">自定义 URL…</option>
+      </select>
+    </div>
+    <div id="custom-url-wrap" class="custom-url-wrap">
+      <!-- populated by popup.js: either a <select> list or an empty-state message -->
+    </div>
+
     <div class="footer">
       <button id="btn-open" class="btn-open">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -206,6 +353,14 @@
           <line x1="10" y1="14" x2="21" y2="3"/>
         </svg>
         打开 RMLive 页面
+      </button>
+      <button id="btn-settings" class="btn-settings">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/>
+          <path d="M12 2v2M12 20v2M2 12h2M20 12h2"/>
+        </svg>
+        扩展设置
       </button>
     </div>
 
