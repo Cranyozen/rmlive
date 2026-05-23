@@ -273,11 +273,18 @@ export function extractLiveZones(data: LiveGameInfo | null): LiveZoneOption[] {
       const qualities = source
         .map((item, qualityIndex) => toQualityOption(item, qualityIndex))
         .filter((item): item is LiveQualityOption => item !== null);
+      const firstFpvHeadimg =
+        Array.isArray(zone.fpvData) &&
+        zone.fpvData.length > 0 &&
+        typeof zone.fpvData[0].headimg === 'string' &&
+        zone.fpvData[0].headimg.trim()
+          ? zone.fpvData[0].headimg.trim()
+          : null;
       const perspectives: LivePerspectiveOption[] = [
         {
           key: 'main',
           label: '主视角',
-          headimg: null,
+          headimg: firstFpvHeadimg,
           qualities,
         },
       ];

@@ -1,6 +1,26 @@
 @import "tailwindcss";
 
 :root {
+  /* Perspective Switcher */
+  --perspective-switcher-bg: rgba(241, 245, 249, 0.92);
+  --perspective-switcher-border: rgba(0, 0, 0, 0.08);
+  --perspective-row-red-bg: rgba(239, 68, 68, 0.06);
+  --perspective-row-blue-bg: rgba(59, 130, 246, 0.06);
+  --perspective-btn-color: rgba(30, 41, 59, 0.85);
+  --perspective-btn-border: rgba(0, 0, 0, 0.18);
+  --perspective-btn-hover-bg: rgba(0, 0, 0, 0.06);
+  --perspective-btn-hover-border: rgba(0, 0, 0, 0.35);
+  --perspective-btn-hover-color: #0f172a;
+  --perspective-btn-active-color: #0369a1;
+  --perspective-btn-red-color: rgb(185, 28, 28);
+  --perspective-btn-red-border: rgba(239, 68, 68, 0.4);
+  --perspective-btn-red-hover-bg: rgba(239, 68, 68, 0.1);
+  --perspective-btn-red-active-color: rgb(153, 27, 27);
+  --perspective-btn-blue-color: rgb(29, 78, 216);
+  --perspective-btn-blue-border: rgba(59, 130, 246, 0.4);
+  --perspective-btn-blue-hover-bg: rgba(59, 130, 246, 0.1);
+  --perspective-btn-blue-active-color: rgb(30, 64, 175);
+
   /* Scoreboard Theme Colors (from MatchBlock.vue) */
   --scoreboard-bg-light: linear-gradient(135deg, rgba(219, 234, 254, 0.45), rgba(191, 219, 254, 0.35));
   --scoreboard-border: rgb(148, 163, 184, 0.25);
@@ -27,6 +47,26 @@
 }
 
 html.app-dark {
+  /* Dark Mode Perspective Switcher */
+  --perspective-switcher-bg: rgba(9, 16, 33, 0.55);
+  --perspective-switcher-border: rgba(255, 255, 255, 0.08);
+  --perspective-row-red-bg: rgba(239, 68, 68, 0.08);
+  --perspective-row-blue-bg: rgba(59, 130, 246, 0.08);
+  --perspective-btn-color: rgba(255, 255, 255, 0.72);
+  --perspective-btn-border: rgba(255, 255, 255, 0.18);
+  --perspective-btn-hover-bg: rgba(255, 255, 255, 0.1);
+  --perspective-btn-hover-border: rgba(255, 255, 255, 0.35);
+  --perspective-btn-hover-color: #fff;
+  --perspective-btn-active-color: #fff;
+  --perspective-btn-red-color: rgba(255, 180, 180, 0.9);
+  --perspective-btn-red-border: rgba(239, 68, 68, 0.3);
+  --perspective-btn-red-hover-bg: rgba(239, 68, 68, 0.18);
+  --perspective-btn-red-active-color: #fff;
+  --perspective-btn-blue-color: rgba(147, 197, 253, 0.9);
+  --perspective-btn-blue-border: rgba(59, 130, 246, 0.3);
+  --perspective-btn-blue-hover-bg: rgba(59, 130, 246, 0.18);
+  --perspective-btn-blue-active-color: #fff;
+
   /* Dark Mode Scoreboard */
   --scoreboard-bg-light: linear-gradient(135deg, rgb(2 6 23 / 0.72), rgb(30 58 138 / 0.34));
   --scoreboard-border: rgb(96 165 250 / 0.35);

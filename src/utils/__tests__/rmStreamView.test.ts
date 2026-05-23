@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { resolveDefaultQualityRes, resolveEffectiveStreamErrorMessage, toPlayerQualityOptions } from '../rmStreamView';
+import {
+  resolveDefaultQualityRes,
+  resolveEffectiveStreamErrorMessage,
+  toPlayerPerspectiveOptions,
+  toPlayerQualityOptions,
+} from '../rmStreamView';
 
 describe('toPlayerQualityOptions', () => {
   it('maps qualities to player options', () => {
@@ -89,5 +94,28 @@ describe('resolveEffectiveStreamErrorMessage', () => {
       'fallback',
     );
     expect(message).toBe('fallback');
+  });
+});
+
+describe('toPlayerPerspectiveOptions', () => {
+  it('maps perspectives to player options with headimg', () => {
+    const options = toPlayerPerspectiveOptions([
+      { key: 'main', label: '主视角', headimg: null },
+      { key: 'fpv-0', label: '红方机器人视角', headimg: 'https://example.com/avatar.png' },
+    ]);
+
+    expect(options).toEqual([
+      { label: '主视角', value: 'main', headimg: null },
+      { label: '红方机器人视角', value: 'fpv-0', headimg: 'https://example.com/avatar.png' },
+    ]);
+  });
+
+  it('returns empty array for null input', () => {
+    expect(toPlayerPerspectiveOptions(null)).toEqual([]);
+  });
+
+  it('defaults missing headimg to null', () => {
+    const options = toPlayerPerspectiveOptions([{ key: 'main', label: '主视角' }]);
+    expect(options[0].headimg).toBeNull();
   });
 });
