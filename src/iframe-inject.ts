@@ -2,72 +2,190 @@ import { userInfoRequestEvent, userInfoResponseEvent } from './constants/userInf
 import { UserInfo } from './types/user';
 
 declare const __RMLIVE_IFRAME_APP_URL__: string | undefined;
+declare const __RMLIVE_IS_EXTENSION__: boolean | undefined;
 
-const fallbackAppUrl = 'https://rmlive.scutbot.cn';
-const configuredAppUrl =
-  typeof __RMLIVE_IFRAME_APP_URL__ === 'string' && __RMLIVE_IFRAME_APP_URL__.trim()
+// Minimal type for the Chrome extension API used here.
+declare const chrome:
+  | {
+      runtime: { getURL: (path: string) => string };
+      storage: {
+        local: { get: (keys: string[], cb: (result: Record<string, unknown>) => void) => void };
+        onChanged: {
+          addListener: (
+            cb: (changes: Record<string, { newValue?: unknown }>, area: string) => void,
+          ) => void;
+        };
+      };
+    }
+  | undefined;
+
+// In extension context, load the bundled app from the extension package.
+// Otherwise, fall back to the configured remote URL.
+const isExtension =
+  typeof __RMLIVE_IS_EXTENSION__ === 'boolean'
+    ? __RMLIVE_IS_EXTENSION__
+    : typeof chrome !== 'undefined' && !!chrome?.runtime?.getURL;
+
+const OFFICIAL_URL = 'https://rmlive.scutbot.cn';
+
+/** Resolve the app URL for non-extension (userscript / direct-embed) contexts. */
+const resolveNonExtensionUrl = (): string => {
+  return typeof __RMLIVE_IFRAME_APP_URL__ === 'string' && __RMLIVE_IFRAME_APP_URL__.trim()
     ? __RMLIVE_IFRAME_APP_URL__.trim()
-    : fallbackAppUrl;
+    : OFFICIAL_URL;
+};
 
-const pageContent = document.querySelector<HTMLElement>('.page-content');
-const mountPoint = pageContent ?? document.body;
+/**
+ * Resolve the app URL for extension contexts based on the user's stored preference.
+ * Modes:
+ *   'builtin'  (default) — bundled app inside the extension package
+ *   'official'           — rmlive.scutbot.cn
+ *   'custom'             — user-supplied URL (falls back to builtin if invalid)
+ */
+const resolveExtensionUrl = (storageResult: Record<string, unknown>): string => {
+  const mode = String(storageResult['rmLiveUrlMode'] ?? 'builtin');
+  if (mode === 'official') {
+    return OFFICIAL_URL;
+  }
+  if (mode === 'custom') {
+    const customUrl = String(storageResult['rmLiveCustomUrl'] ?? '').trim();
+    if (customUrl.startsWith('http://') || customUrl.startsWith('https://')) {
+      return customUrl;
+    }
+    // Invalid custom URL — fall through to builtin
+  }
+  // 'builtin' or fallback
+  if (typeof chrome !== 'undefined' && chrome?.runtime?.getURL) {
+    return chrome.runtime.getURL('index.html');
+  }
+  return OFFICIAL_URL;
+};
 
-if (pageContent) {
-  // Keep top navigation, but replace page-content area with iframe.
-  while (pageContent.firstChild) {
-    pageContent.removeChild(pageContent.firstChild);
+let iframe: HTMLIFrameElement | null = null;
+let iframeOrigin = '';
+
+const mountIframe = (appUrl: string) => {
+  const pageContent = document.querySelector<HTMLElement>('.page-content');
+  const mountPoint = pageContent ?? document.body;
+
+  if (pageContent) {
+    // Keep top navigation, but replace page-content area with iframe.
+    while (pageContent.firstChild) {
+      pageContent.removeChild(pageContent.firstChild);
+    }
+
+    const topOffset = Math.max(0, Math.round(pageContent.getBoundingClientRect().top));
+    pageContent.style.margin = '0';
+    pageContent.style.padding = '0';
+    pageContent.style.position = 'relative';
+    pageContent.style.overflow = 'hidden';
+    pageContent.style.height = `calc(100vh - ${topOffset}px)`;
+  } else {
+    // Fallback for pages without .page-content.
+    document.documentElement.style.margin = '0';
+    document.documentElement.style.height = '100%';
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.margin = '0';
+    document.body.style.height = '100%';
+    document.body.style.overflow = 'hidden';
   }
 
-  const topOffset = Math.max(0, Math.round(pageContent.getBoundingClientRect().top));
-  pageContent.style.margin = '0';
-  pageContent.style.padding = '0';
-  pageContent.style.position = 'relative';
-  pageContent.style.overflow = 'hidden';
-  pageContent.style.height = `calc(100vh - ${topOffset}px)`;
-} else {
-  // Fallback for pages without .page-content.
-  document.documentElement.style.margin = '0';
-  document.documentElement.style.height = '100%';
-  document.documentElement.style.overflow = 'hidden';
-  document.body.style.margin = '0';
-  document.body.style.height = '100%';
-  document.body.style.overflow = 'hidden';
+  const footer = document.querySelector<HTMLElement>('.footer');
+  if (footer) {
+    footer.style.display = 'none';
+  }
+
+  // Avoid creating duplicate iframes if the script runs more than once.
+  const existingIframe = document.getElementById('rm-live-iframe');
+  if (existingIframe) {
+    existingIframe.remove();
+  }
+
+  iframe = document.createElement('iframe') as HTMLIFrameElement;
+  iframe.src = appUrl;
+  iframe.id = 'rm-live-iframe';
+  iframe.allowFullscreen = true;
+  iframe.allow =
+    'autoplay; fullscreen; picture-in-picture; notifications; permissions; periodic-sync; vibrate';
+  iframe.style.width = '100%';
+  iframe.style.height = '100%';
+  iframe.style.border = '0';
+  iframe.style.display = 'block';
+
+  if (pageContent) {
+    iframe.style.position = 'absolute';
+    iframe.style.inset = '0';
+    iframe.style.zIndex = '1';
+  } else {
+    iframe.style.position = 'fixed';
+    iframe.style.inset = '0';
+    iframe.style.zIndex = '2147483647';
+  }
+  iframeOrigin = new URL(iframe.src, window.location.href).origin;
+
+  mountPoint.appendChild(iframe);
+  console.log('mounted rm-live iframe to', mountPoint);
+};
+
+const isLivePage = /https:\/\/www\.robomaster\.com\/([\w-]+\/)?live/.test(window.location.href);
+
+// When running as an extension, check the user's enable/disable setting first.
+if (isExtension && typeof chrome !== 'undefined' && chrome?.storage?.local) {
+  chrome.storage.local.get(
+    ['rmLiveEnabled', 'rmLiveUrlMode', 'rmLiveCustomUrl'],
+    (result: Record<string, unknown>) => {
+      const enabled = result['rmLiveEnabled'] !== false; // default true
+      if (enabled && isLivePage) {
+        mountIframe(resolveExtensionUrl(result));
+      } else if (!isLivePage) {
+        console.log('[rmlive] Not a live page, skipping injection.');
+      } else {
+        console.log('[rmlive] Extension disabled by user setting.');
+      }
+    },
+  );
+
+  // React to settings changes without requiring a full page reload.
+  chrome.storage.onChanged?.addListener(
+    (changes: Record<string, { newValue?: unknown }>, area: string) => {
+      if (area !== 'local') return;
+      if (!isLivePage) return;
+
+      const urlChanged = 'rmLiveUrlMode' in changes || 'rmLiveCustomUrl' in changes;
+      const enabledChanged = 'rmLiveEnabled' in changes;
+      if (!urlChanged && !enabledChanged) return;
+
+      // Re-read all relevant keys so resolveExtensionUrl gets a complete picture.
+      chrome!.storage.local.get(
+        ['rmLiveEnabled', 'rmLiveUrlMode', 'rmLiveCustomUrl'],
+        (result: Record<string, unknown>) => {
+          const enabled = result['rmLiveEnabled'] !== false;
+          if (!enabled) {
+            // Remove iframe if extension was disabled.
+            const existing = document.getElementById('rm-live-iframe');
+            if (existing) existing.remove();
+            iframe = null;
+            return;
+          }
+          const newUrl = resolveExtensionUrl(result);
+          if (iframe) {
+            // Swap src in-place — no full remount needed.
+            if (iframe.src !== newUrl) {
+              iframe.src = newUrl;
+              iframeOrigin = new URL(newUrl, window.location.href).origin;
+              console.log('[rmlive] iframe src updated to', newUrl);
+            }
+          } else {
+            // Extension was re-enabled — remount.
+            mountIframe(newUrl);
+          }
+        },
+      );
+    },
+  );
+} else if (isLivePage) {
+  mountIframe(resolveNonExtensionUrl());
 }
-
-const footer = document.querySelector<HTMLElement>('.footer');
-if (footer) {
-  footer.style.display = 'none';
-}
-
-// Avoid creating duplicate iframes if the script runs more than once.
-const existingIframe = document.getElementById('rm-live-iframe');
-if (existingIframe) {
-  existingIframe.remove();
-}
-
-const iframe = document.createElement('iframe') as HTMLIFrameElement;
-iframe.src = configuredAppUrl;
-iframe.id = 'rm-live-iframe';
-iframe.allowFullscreen = true;
-iframe.allow = 'autoplay; fullscreen; picture-in-picture; notifications; permissions; periodic-sync; vibrate';
-iframe.style.width = '100%';
-iframe.style.height = '100%';
-iframe.style.border = '0';
-iframe.style.display = 'block';
-
-if (pageContent) {
-  iframe.style.position = 'absolute';
-  iframe.style.inset = '0';
-  iframe.style.zIndex = '1';
-} else {
-  iframe.style.position = 'fixed';
-  iframe.style.inset = '0';
-  iframe.style.zIndex = '2147483647';
-}
-const iframeOrigin = new URL(iframe.src, window.location.href).origin;
-
-mountPoint.appendChild(iframe);
-console.log('mounted rm-live iframe to', mountPoint);
 
 interface CookieUserInfo {
   nickname: string;
@@ -210,7 +328,7 @@ const getUserInfo = async (): Promise<UserInfo | null> => {
 };
 
 window.addEventListener('message', async (event: MessageEvent) => {
-  if (event.source !== iframe.contentWindow) {
+  if (!iframe || event.source !== iframe.contentWindow) {
     return;
   }
 

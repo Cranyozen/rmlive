@@ -11,16 +11,18 @@ import { VitePWA } from 'vite-plugin-pwa';
 export default defineConfig(({ mode }) => {
   const isAnalyze = mode === 'analyze';
   const isBuildIFrame = process.env.VITE_BUILD_IFRAME === 'true' || mode === 'iframe';
+  const isBuildExtension = process.env.VITE_BUILD_TARGET === 'extension';
   const useRmLiveJsonMock = process.env.VITE_RM_MOCK === '1';
   const iframeAppUrl = process.env.VITE_IFRAME_APP_URL ?? 'https://rmlive.scutbot.cn';
 
   if (isBuildIFrame) {
-    // Build iframe-inject.js as a standalone IIFE
+    // Build iframe-inject.js as a standalone IIFE (content script for extension or standalone injector)
     return {
       plugins: [],
       define: {
         'process.env.NODE_ENV': JSON.stringify('production'),
-        __RMLIVE_IFRAME_APP_URL__: JSON.stringify(iframeAppUrl),
+        __RMLIVE_IFRAME_APP_URL__: JSON.stringify(isBuildExtension ? '' : iframeAppUrl),
+        __RMLIVE_IS_EXTENSION__: JSON.stringify(isBuildExtension),
       },
       resolve: {
         alias: {
@@ -33,8 +35,8 @@ export default defineConfig(({ mode }) => {
           name: 'RmLiveInjector',
           formats: ['iife'],
         },
-        outDir: 'dist',
-        // Keep existing app assets in dist when running iframe build after main build.
+        outDir: isBuildExtension ? 'dist-extension' : 'dist',
+        // Keep existing app assets in outDir when running iframe build after main build.
         emptyOutDir: false,
         rollupOptions: {
           output: {
@@ -42,6 +44,37 @@ export default defineConfig(({ mode }) => {
           },
         },
         minify: 'terser',
+      },
+    };
+  }
+
+  if (isBuildExtension) {
+    // Build main Vue app for extension: no PWA, relative base, output to dist-extension/
+    const noopPwaPlugin = {
+      name: 'noop-pwa-register',
+      resolveId(id: string) {
+        if (id === 'virtual:pwa-register') return '\0virtual:pwa-register';
+      },
+      load(id: string) {
+        if (id === '\0virtual:pwa-register') return 'export const registerSW = () => () => {};';
+      },
+    };
+    return {
+      base: './',
+      plugins: [tailwindcss(), vue(), noopPwaPlugin],
+      resolve: {
+        alias: {
+          '@': path.resolve(__dirname, './src'),
+        },
+      },
+      build: {
+        outDir: 'dist-extension',
+        emptyOutDir: true,
+        rollupOptions: {
+          output: {
+            manualChunks: undefined,
+          },
+        },
       },
     };
   }
